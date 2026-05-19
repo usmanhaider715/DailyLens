@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply font-body bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.article-content-wrap {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}
+
+/* AI / HTML article body */
+.article-content-wrap .article-html-content h2 {
+  @apply mt-10 mb-4 font-display text-2xl font-bold text-gray-900 dark:text-white;
+}
+
+.article-content-wrap .article-html-content h2 strong {
+  @apply font-bold;
+}
+
+.article-content-wrap .article-html-content p {
+  @apply mb-6;
+}
+
+.article-content-wrap .article-html-content strong {
+  @apply font-semibold text-gray-900 dark:text-white;
+}
+
+.article-content-wrap .article-html-content a {
+  @apply text-primary-700 underline decoration-primary-300 underline-offset-2 hover:text-primary-800 dark:text-primary-400 dark:decoration-primary-600;
+}
+
+.article-content-wrap .article-followup {
+  @apply mt-14 border-t border-gray-200 pt-10 dark:border-gray-800;
+}
+
+.article-content-wrap .article-followup h2 {
+  @apply mb-5 font-display text-xl font-bold text-gray-900 dark:text-white;
+}
+
+.article-content-wrap .article-followup-list {
+  @apply m-0 list-none space-y-3 p-0;
+}
+
+.article-content-wrap .article-followup-item {
+  @apply relative pl-5 text-[17px] leading-relaxed text-gray-700 dark:text-gray-300;
+}
+
+.article-content-wrap .article-followup-item::before {
+  content: '→';
+  @apply absolute left-0 text-primary-600 dark:text-primary-400;
+}
+
+.article-content-wrap .article-followup-item a {
+  @apply font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400;
+}
+
+.article-content-wrap .article-followup-note {
+  @apply mt-5 text-xs text-gray-500 dark:text-gray-500;
+}
+
+.article-content-wrap .article-followup-note a {
+  @apply text-gray-500 underline hover:text-gray-700;
+}
+
+.article-content-wrap .article-legal-footer {
+  @apply mt-16 border-t border-gray-200 pt-8 dark:border-gray-800;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: #9ca3af;
+}
+
+.article-content-wrap .article-legal-footer .article-legal-line {
+  margin: 0 0 0.45rem;
+}
+
+.article-content-wrap .article-legal-footer .article-legal-label {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.article-content-wrap .article-legal-footer a {
+  color: #9ca3af;
+  text-decoration: underline;
+}
+
+.article-content-wrap .article-legal-footer a:hover {
+  color: #6b7280;
+}

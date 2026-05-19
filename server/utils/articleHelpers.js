@@ -1,0 +1,78 @@
+import { Article } from '../models/Article.js';
+import { slugify } from './slugify.js';
+import { hashUrl } from './hashUrl.js';
+import { stripHtml } from './stripHtml.js';
+
+export async function ensureUniqueSlug(base) {
+  let slug = base || 'article';
+  let n = 0;
+  while (await Article.exists({ slug })) {
+    n += 1;
+    slug = `${base}-${n}`;
+  }
+  return slug;
+}
+
+export function estimateReadTime(body) {
+  const words = String(body || '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+export function buildArticlePayload(input, existing = null) {
+  const title = input.title?.trim();
+  const body = input.body?.trim();
+  const summary = stripHtml(input.summary?.trim() || body?.slice(0, 280) || title);
+
+  if (!title || !body) {
+    const err = new Error('Title and body are required');
+    err.status = 400;
+    throw err;
+  }
+
+  const slugBase = slugify(input.slug || title);
+  const forecast = input.forecast || {};
+  const showForecast = !!forecast.enabled;
+
+  const payload = {
+    title,
+    summary,
+    body,
+    category: input.category || 'World',
+    tags: Array.isArray(input.tags) ? input.tags : [],
+    author: input.author || 'The Daily Lens Desk',
+    heroImage: input.heroImage?.url
+      ? {
+          url: input.heroImage.url,
+          alt: input.heroImage.alt || title,
+          credit: input.heroImage.credit || '',
+          creditUrl: input.heroImage.creditUrl || '',
+          source: input.heroImage.source || 'original',
+        }
+      : existing?.heroImage || { url: '', alt: title, source: 'placeholder' },
+    seoScore: input.seoScore ?? existing?.seoScore ?? 7,
+    readTime: input.readTime ?? estimateReadTime(body),
+    isBreaking: !!input.isBreaking,
+    isFeatured: !!input.isFeatured,
+    isPublished: input.isPublished !== false,
+    isPaused: input.isPaused !== undefined ? !!input.isPaused : !!existing?.isPaused,
+    publishedAt: input.publishedAt ? new Date(input.publishedAt) : existing?.publishedAt || new Date(),
+    sourceType: 'manual',
+    forecast: {
+      enabled: showForecast,
+      headline: showForecast ? forecast.headline || '' : '',
+      body: showForecast ? forecast.body || '' : '',
+      confidence: forecast.confidence || 'Medium',
+    },
+  };
+
+  if (!existing) {
+    const manualUrl = `manual://${slugBase}-${Date.now()}`;
+    payload.slug = slugBase;
+    payload.originalUrl = manualUrl;
+    payload.urlHash = hashUrl(manualUrl);
+    payload.originalTitle = title;
+    payload.source = { name: 'The Daily Lens', url: '' };
+  }
+
+  return payload;
+}
