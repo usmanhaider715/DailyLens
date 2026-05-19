@@ -13,6 +13,7 @@ import { apiLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setSocketIO, emitTickerUpdate, broadcastLiveCount } from './services/socketService.js';
 import { Article } from './models/Article.js';
+import { publicArticleFilter } from './utils/publicArticleFilter.js';
 import { logger } from './utils/logger.js';
 import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
