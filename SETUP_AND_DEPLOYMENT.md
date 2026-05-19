@@ -6,7 +6,7 @@ This document walks you from a fresh machine to a **fully functional** productio
 
 | Path | Role |
 |------|------|
-| `client/` | React (Vite) frontend — build output is `client/dist/` |
+| `web/` | Next.js 15 frontend (SSR) — production on port 3000 |
 | `server/` | Node.js API, Socket.io, cron jobs, MongoDB models |
 | `nginx/newssite.conf` | Template reverse proxy for production |
 | `docker-compose.yml` | Local MongoDB + Redis |

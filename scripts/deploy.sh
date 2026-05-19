@@ -3,5 +3,5 @@ set -euo pipefail
 cd /var/www/newssite
 git pull origin main
 cd server && npm install --production
-cd ../client && npm install && npm run build
-pm2 reload newssite
+cd ../web && npm install && npm run build
+pm2 reload ecosystem.config.cjs --update-env

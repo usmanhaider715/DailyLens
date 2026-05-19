@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
+import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
 
 export function ArticleManager() {
   const [items, setItems] = useState([]);
@@ -193,6 +194,7 @@ export function ArticleManager() {
               <th className="px-3 py-2 text-left">Thumb</th>
               <th className="px-3 py-2 text-left">Headline</th>
               <th className="px-3 py-2">Category</th>
+              <th className="px-3 py-2">SEO</th>
               <th className="px-3 py-2">Views</th>
               <th className="px-3 py-2">Published</th>
               <th className="px-3 py-2">Breaking</th>
@@ -235,6 +237,9 @@ export function ArticleManager() {
                   )}
                 </td>
                 <td className="px-3 py-2">{a.category}</td>
+                <td className="px-3 py-2">
+                  <SeoScoreBadge score={a.seoScore} size="sm" />
+                </td>
                 <td className="px-3 py-2">{a.views}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatArticleDate(a.publishedAt)}</td>
                 <td className="px-3 py-2 text-center">

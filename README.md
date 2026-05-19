@@ -10,8 +10,6 @@ Next.js (SSR) frontend + Express API for a news site with AI-assisted editorial 
 | Express API | `server/` | 5001 |
 | MongoDB | — | 27017 |
 
-Legacy Vite client remains in `client/` for reference; **use `web/` for production**.
-
 ## Quick start
 
 ```bash

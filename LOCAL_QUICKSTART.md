@@ -1,10 +1,10 @@
-# The Daily Lens — Local quick start (no AI)
+# The Daily Lens — Local quick start
 
 ## Admin login
 
 | Field | Value |
 |-------|--------|
-| URL | http://localhost:5173/admin/login |
+| URL | http://localhost:3000/admin/login |
 | Email | `admin@dailylens.com` |
 | Password | `DailyLens2026!` |
 
@@ -17,43 +17,32 @@ cd newssite
 docker compose up -d
 ```
 
-**Option B — Homebrew** (macOS, used on this machine):
+**Option B — Homebrew** (macOS):
 
 ```bash
 brew services start mongodb/brew/mongodb-community@7.0
-# Redis was already running on port 6379
 ```
 
 ## Start the app
 
 ```bash
-# Terminal 1 — API (port 5001 — macOS often uses 5000 for AirPlay)
+# Terminal 1 — API (port 5001)
 cd newssite/server
 npm install
 npm run seed    # demo articles + admin user (safe to re-run)
 npm run dev
 
-# Terminal 2 — Frontend
-cd newssite/client
+# Terminal 2 — Next.js (port 3000)
+cd newssite/web
 npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**
+Open **http://localhost:3000**
 
-## What works without AI
+## What works
 
-- 12 demo articles (breaking, featured, forecasts)
-- **Admin → Write article** — create/edit headlines, body, category, breaking/featured flags
-- **Forecast block** — enable per article; shows on site, sidebar, categories, cards
-- **Admin → Articles** — edit, toggle breaking/featured, delete
-- **Admin → Breaking News** — push ticker instantly
-- Socket.io ticker and live viewer count
-
-AI cron is off when `DISABLE_AI_PIPELINE=true` in `server/.env`.
-
-## Re-seed demo content
-
-```bash
-cd newssite/server && npm run seed
-```
+- SSR article pages with SEO score badge (1–10)
+- Related reading links (Wikipedia / external) in *italics*
+- Admin panel at `/admin`
+- Live scores, weather locator, AI news feed (with `GROQ_API_KEY`)

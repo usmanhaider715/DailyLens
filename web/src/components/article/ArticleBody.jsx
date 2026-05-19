@@ -1,4 +1,7 @@
+'use client';
+
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
+import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
 import { ShareButtons } from './ShareButtons.jsx';
 import { RelatedArticles } from './RelatedArticles.jsx';
@@ -59,6 +62,7 @@ export function ArticleBody({ article, related }) {
 
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
           <CategoryBadge category={article.category} />
+          <SeoScoreBadge score={article.seoScore} />
           {article.forecast?.enabled && <ForecastBadge confidence={article.forecast.confidence} />}
           <span>{article.author}</span>
           <span>·</span>

@@ -30,7 +30,34 @@ export function cleanArticleMainBody(body) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  return prepareArticleHtml(normalizeWikipediaLinks(text));
+  return prepareArticleHtml(wrapLinksInEm(normalizeWikipediaLinks(text)));
+}
+
+function resolveFollowUpUrl(item) {
+  const direct = String(item.url || item.href || '').trim();
+  if (/^https?:\/\//i.test(direct)) return direct;
+
+  const wikiTitle = stripHtml(item.wikiTitle || item.wikipediaTitle || '')
+    .replace(/\?+$/, '')
+    .trim();
+  if (wikiTitle) return wikipediaArticleUrl(wikiTitle);
+
+  const phrase = stripHtml(item.linkPhrase || '').trim();
+  if (phrase) return wikipediaArticleUrl(phrase);
+
+  return null;
+}
+
+function italicLink(url, label) {
+  return `<em><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a></em>`;
+}
+
+export function wrapLinksInEm(html) {
+  if (!html) return '';
+  return html.replace(/<a(\s[^>]*?)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
+    if (/^\s*<em[\s>]/i.test(inner) || /<a[\s>]/i.test(inner)) return match;
+    return `<em><a${attrs}>${inner}</a></em>`;
+  });
 }
 
 export function buildArticleFollowUpHtml(links) {
@@ -42,21 +69,17 @@ export function buildArticleFollowUpHtml(links) {
       const text = stripHtml(item.text || item.question || item.label || '');
       if (!text) return '';
 
-      const wikiTitle = stripHtml(item.wikiTitle || item.wikipediaTitle || item.linkPhrase || text)
-        .replace(/\?+$/, '')
-        .trim();
-      const url = wikipediaArticleUrl(wikiTitle);
+      const url = resolveFollowUpUrl(item);
+      if (!url) return '';
+
       const phrase = stripHtml(item.linkPhrase || '').trim();
 
       let inner;
       if (phrase && text.includes(phrase)) {
         const escaped = escapeHtml(phrase);
-        inner = escapeHtml(text).replace(
-          escaped,
-          `<a href="${url}" target="_blank" rel="noopener noreferrer">${escaped}</a>`
-        );
+        inner = escapeHtml(text).replace(escaped, italicLink(url, phrase));
       } else {
-        inner = `<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+        inner = italicLink(url, text);
       }
 
       return `<li class="article-followup-item">${inner}</li>`;
@@ -70,7 +93,7 @@ export function buildArticleFollowUpHtml(links) {
 <section class="article-followup">
   <h2><strong>Related reading &amp; questions</strong></h2>
   <ul class="article-followup-list">${items}</ul>
-  <p class="article-followup-note">Background context via <a href="https://www.wikipedia.org/" target="_blank" rel="noopener noreferrer">Wikipedia</a>.</p>
+  <p class="article-followup-note">Further reading opens on Wikipedia or the original publisher in a new tab.</p>
 </section>`;
 }
 
@@ -113,5 +136,5 @@ export function assembleArticleBody(mainHtml, footerOrOptions) {
     body = `${body}\n\n${footerHtml}`;
   }
 
-  return prepareArticleHtml(normalizeWikipediaLinks(body));
+  return prepareArticleHtml(wrapLinksInEm(normalizeWikipediaLinks(body)));
 }

@@ -4,24 +4,26 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 const ThemeContext = createContext(null);
 
+function readDarkPreference() {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('theme') === 'dark';
+}
+
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme') === 'dark';
-    setDark(saved);
+    setDark(readDarkPreference());
+    setReady(true);
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
     const root = document.documentElement;
-    if (dark) {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [dark]);
+    root.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark, ready]);
 
   const value = useMemo(
     () => ({

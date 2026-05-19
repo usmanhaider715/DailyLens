@@ -101,7 +101,10 @@ Every field below is checked before publish. Violations hurt Google rankings.
 
 ─── 8. followUpLinks (separate from body) ───
 • Exactly 5–6 items. Plain text "text" field only (no HTML).
-• Each: thoughtful question or statement + "wikiTitle" + optional "linkPhrase" (must appear verbatim in text).
+• Each item: thoughtful question or statement that points readers to deeper reading.
+• Provide "url" (full https:// link to Wikipedia OR the original publisher / authoritative source) when possible.
+• OR provide "wikiTitle" (+ optional "linkPhrase" that appears verbatim in text) for Wikipedia.
+• "linkPhrase" is the exact words in "text" that become the clickable link (rendered in italics on site).
 
 ─── 9. seoScore ───
 • Integer 1–10. Self-rate how well you met ALL rules above (10 = perfect compliance).
@@ -118,7 +121,7 @@ RETURN JSON (exact keys)
   "heroImageAlt": "string, 80-120 chars, describes ideal hero image",
   "body": "HTML article only",
   "followUpLinks": [
-    { "text": "plain question or statement", "wikiTitle": "Wikipedia Article Title", "linkPhrase": "words to link" }
+    { "text": "plain question or statement", "url": "https://en.wikipedia.org/wiki/Example", "linkPhrase": "words to link" }
   ],
   "seoScore": 9,
   "readTime": 5,

@@ -106,6 +106,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
         heroImageCreditUrl: draft.heroImageCreditUrl || item.url,
         heroImageSource: draft.heroImageSource || 'original',
         isBreaking: draft.isBreaking,
+        seoScore: draft.seoScore ?? 7,
       });
 
       toast.success('Article drafted — review and publish');

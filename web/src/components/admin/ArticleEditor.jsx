@@ -41,6 +41,7 @@ const emptyForm = {
   forecastHeadline: '',
   forecastBody: '',
   forecastConfidence: 'Medium',
+  seoScore: 7,
 };
 
 export function ArticleEditor() {
@@ -77,6 +78,7 @@ export function ArticleEditor() {
           forecastHeadline: data.forecast?.headline || '',
           forecastBody: data.forecast?.body || '',
           forecastConfidence: data.forecast?.confidence || 'Medium',
+          seoScore: data.seoScore ?? 7,
         });
       } catch {
         toast.error('Could not load article');
@@ -121,6 +123,7 @@ export function ArticleEditor() {
       body: form.forecastBody,
       confidence: form.forecastConfidence,
     },
+    seoScore: Number(form.seoScore) || 7,
   });
 
   const save = async (e) => {
@@ -182,6 +185,7 @@ export function ArticleEditor() {
             heroImageCredit: draft.heroImageCredit || f.heroImageCredit,
             heroImageCreditUrl: draft.heroImageCreditUrl || f.heroImageCreditUrl,
             isBreaking: draft.isBreaking ?? f.isBreaking,
+            seoScore: draft.seoScore ?? f.seoScore,
           }));
         }}
       />
@@ -250,6 +254,17 @@ export function ArticleEditor() {
               <input
                 value={form.author}
                 onChange={(e) => set('author', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </label>
+            <label className="text-sm font-medium">
+              SEO score (1–10)
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={form.seoScore}
+                onChange={(e) => set('seoScore', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               />
             </label>
