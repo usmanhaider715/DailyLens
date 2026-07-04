@@ -2,7 +2,8 @@ import { Article } from '../models/Article.js';
 import { slugify } from './slugify.js';
 import { hashUrl } from './hashUrl.js';
 import { stripHtml } from './stripHtml.js';
-import { normalizeHeroImage } from './heroImageUtils.js';
+import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
+import { deleteHeroUploadFile, extractUploadFilename } from './heroFileUpload.js';
 
 export async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -48,7 +49,11 @@ export function buildArticlePayload(input, existing = null) {
             alt: input.heroImage.alt || title,
             credit: input.heroImage.credit || '',
             creditUrl: input.heroImage.creditUrl || '',
-            source: input.heroImage.source || 'original',
+            source: input.heroImage.source || (isUploadedHeroUrl(input.heroImage.url) ? 'upload' : 'original'),
+            uploadFilename:
+              input.heroImage.uploadFilename ||
+              extractUploadFilename(input.heroImage.url) ||
+              '',
           }
         : existing?.heroImage,
       input.category || existing?.category || 'World'

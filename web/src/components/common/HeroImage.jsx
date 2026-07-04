@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fallbackHeroUrl, resolveHeroSrc } from '@/utils/heroImage';
 
 export function HeroImage({
@@ -16,6 +16,11 @@ export function HeroImage({
 }) {
   const [src, setSrc] = useState(() => resolveHeroSrc(url, category));
   const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    setSrc(resolveHeroSrc(url, category));
+    setErrored(false);
+  }, [url, category]);
 
   const display = errored ? fallbackHeroUrl(category) : src;
 

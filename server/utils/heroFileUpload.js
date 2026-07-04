@@ -37,9 +37,26 @@ export async function saveCompressedHeroFile(buffer, { slugHint = 'hero' } = {})
 }
 
 export function heroUploadPublicUrl(filename) {
-  const site = (process.env.SITE_URL || process.env.CLIENT_URL || '').replace(/\/$/, '');
-  if (site) return `${site}/uploads/heroes/${filename}`;
   return `/uploads/heroes/${filename}`;
+}
+
+export function extractUploadFilename(url) {
+  const m = String(url || '').match(/\/uploads\/heroes\/([^/?#]+)/i);
+  return m?.[1] || null;
+}
+
+export async function deleteHeroUploadFile(filenameOrUrl) {
+  const name =
+    filenameOrUrl && String(filenameOrUrl).includes('/')
+      ? extractUploadFilename(filenameOrUrl)
+      : filenameOrUrl;
+  if (!name || !/^[\w.-]+\.webp$/i.test(name)) return false;
+  try {
+    await fs.unlink(path.join(UPLOAD_DIR, name));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getHeroUploadDir() {

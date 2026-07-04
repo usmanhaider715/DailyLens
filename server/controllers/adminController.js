@@ -6,6 +6,7 @@ import { emitBreakingNews, getLiveTrafficStats } from '../services/socketService
 import { runManualFetch as runManualFetchJob } from '../jobs/newsFetcher.js';
 import { invalidateArticleCaches } from './articleController.js';
 import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.js';
+import { cleanupHeroUpload, cleanupReplacedHeroUpload } from '../utils/heroUploadCleanup.js';
 import { slugify } from '../utils/slugify.js';
 import { Category } from '../models/Category.js';
 
@@ -67,8 +68,12 @@ export async function updateArticle(req, res, next) {
     }
 
     const wasBreaking = existing.isBreaking;
+    const previousHero = existing.heroImage
+      ? JSON.parse(JSON.stringify(existing.heroImage))
+      : null;
     Object.assign(existing, payload);
     await existing.save();
+    await cleanupReplacedHeroUpload(previousHero, existing.heroImage);
 
     if (existing.isBreaking && existing.isPublished && !wasBreaking) {
       emitBreakingNews({
@@ -148,6 +153,9 @@ export async function setPaused(req, res, next) {
 
 export async function deleteArticle(req, res, next) {
   try {
+    const doc = await Article.findById(req.params.id);
+    if (!doc) return res.status(404).json({ message: 'Article not found' });
+    await cleanupHeroUpload(doc.heroImage);
     await Article.findByIdAndDelete(req.params.id);
     await invalidateArticleCaches();
     res.json({ ok: true });
@@ -159,6 +167,8 @@ export async function deleteArticle(req, res, next) {
 export async function bulkDelete(req, res, next) {
   try {
     const ids = req.body.ids || [];
+    const docs = await Article.find({ _id: { $in: ids } }).select('heroImage').lean();
+    await Promise.all(docs.map((d) => cleanupHeroUpload(d.heroImage)));
     await Article.deleteMany({ _id: { $in: ids } });
     await invalidateArticleCaches();
     res.json({ ok: true });

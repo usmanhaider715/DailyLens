@@ -39,6 +39,7 @@ const emptyForm = {
   heroImageCredit: '',
   heroImageCreditUrl: '',
   heroImageSource: '',
+  heroImageUploadFilename: '',
   isBreaking: false,
   isFeatured: false,
   isPublished: true,
@@ -91,6 +92,7 @@ export function ArticleEditor() {
           heroImageCredit: data.heroImage?.credit || '',
           heroImageCreditUrl: data.heroImage?.creditUrl || '',
           heroImageSource: data.heroImage?.source || '',
+          heroImageUploadFilename: data.heroImage?.uploadFilename || '',
           isBreaking: !!data.isBreaking,
           isFeatured: !!data.isFeatured,
           isPublished: data.isPublished !== false,
@@ -133,6 +135,7 @@ export function ArticleEditor() {
         heroImageCredit: data.credit || 'Uploaded image',
         heroImageCreditUrl: '',
         heroImageSource: 'upload',
+        heroImageUploadFilename: data.filename || '',
       }));
       const kb = data.bytes ? Math.round(data.bytes / 1024) : null;
       toast.success(kb ? `Hero uploaded & compressed (${kb} KB WebP)` : 'Hero image uploaded');
@@ -161,7 +164,8 @@ export function ArticleEditor() {
           alt: form.heroImageAlt || form.title,
           credit: form.heroImageCredit || '',
           creditUrl: form.heroImageCreditUrl || '',
-          source: form.heroImageSource || 'original',
+          source: form.heroImageSource === 'upload' ? 'upload' : form.heroImageSource || 'original',
+          uploadFilename: form.heroImageUploadFilename || undefined,
         }
       : undefined,
     isBreaking: form.isBreaking,
@@ -337,12 +341,33 @@ export function ArticleEditor() {
           </label>
           <div className="mt-3">
             <span className="text-sm font-medium">Hero image</span>
+            {form.heroImageSource === 'upload' && form.heroImageUrl && (
+              <p className="mt-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                Using uploaded file (preferred over external URL)
+              </p>
+            )}
             <div className="mt-1 flex flex-wrap gap-2">
               <input
                 value={form.heroImageUrl}
-                onChange={(e) => set('heroImageUrl', e.target.value)}
-                placeholder="https://..."
-                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const isUpload = /\/uploads\/heroes\//i.test(v);
+                  setForm((f) => ({
+                    ...f,
+                    heroImageUrl: v,
+                    heroImageSource: isUpload ? 'upload' : v ? 'original' : '',
+                    heroImageUploadFilename: isUpload
+                      ? v.split('/').pop()?.split('?')[0] || f.heroImageUploadFilename
+                      : '',
+                  }));
+                }}
+                placeholder="https://... or /uploads/heroes/..."
+                readOnly={form.heroImageSource === 'upload' && !!form.heroImageUploadFilename}
+                className={`min-w-0 flex-1 rounded-lg border px-3 py-2 dark:bg-gray-800 dark:text-gray-100 ${
+                  form.heroImageSource === 'upload'
+                    ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800'
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
               />
               <input
                 ref={heroFileRef}
@@ -355,7 +380,7 @@ export function ArticleEditor() {
                 type="button"
                 disabled={heroUploading}
                 onClick={() => heroFileRef.current?.click()}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
               >
                 {heroUploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
                 Upload from file
@@ -368,6 +393,23 @@ export function ArticleEditor() {
                 <Search className="h-4 w-4" />
                 Search hero image
               </button>
+              {form.heroImageSource === 'upload' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      heroImageUrl: '',
+                      heroImageSource: '',
+                      heroImageUploadFilename: '',
+                      heroImageCredit: '',
+                    }))
+                  }
+                  className="text-xs font-medium text-gray-500 underline hover:text-gray-800 dark:hover:text-gray-200"
+                >
+                  Clear upload
+                </button>
+              )}
             </div>
             <p className="mt-1 text-xs text-gray-500">
               Upload a photo (auto-compressed to WebP, max 1200px wide) or search Wikimedia, Creative Commons, and
@@ -377,6 +419,7 @@ export function ArticleEditor() {
           {form.heroImageUrl && (
             <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
               <HeroImage
+                key={form.heroImageUrl}
                 url={form.heroImageUrl}
                 alt={form.title || 'Preview'}
                 category={form.category}
@@ -482,6 +525,7 @@ export function ArticleEditor() {
             heroImageCredit: img.credit || f.heroImageCredit,
             heroImageCreditUrl: img.creditUrl || f.heroImageCreditUrl,
             heroImageSource: img.source || 'original',
+            heroImageUploadFilename: '',
           }));
           setHeroSearchOpen(false);
           toast.success('Hero image updated');

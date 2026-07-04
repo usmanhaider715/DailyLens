@@ -3,13 +3,21 @@ export function unsplashHeroUrl(category = 'news') {
   return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&fit=crop&q=80&auto=format&ixlib=rb-4.0.3`;
 }
 
+export function isUploadedHeroUrl(url) {
+  return /\/uploads\/heroes\/[^/?#]+\.webp$/i.test(String(url || '').trim());
+}
+
 export function isUsableImageUrl(url) {
   if (!url || typeof url !== 'string') return false;
+  const raw = url.trim();
+  if (raw.startsWith('/uploads/heroes/')) {
+    return !isRejectedHeroImageUrl(raw);
+  }
   try {
-    const u = new URL(url.trim());
+    const u = new URL(raw);
     if (!['http:', 'https:'].includes(u.protocol)) return false;
     if (u.pathname.endsWith('.svg')) return false;
-    return !isRejectedHeroImageUrl(url);
+    return !isRejectedHeroImageUrl(raw);
   } catch {
     return false;
   }
@@ -53,6 +61,20 @@ export function isRejectedHeroImageUrl(url) {
 
 export function normalizeHeroImage(hero, category = 'World') {
   const url = hero?.url?.trim() || '';
+  const isUpload = hero?.source === 'upload' || isUploadedHeroUrl(url);
+
+  if (isUpload && url) {
+    return {
+      url,
+      alt: hero?.alt || 'News image',
+      credit: hero?.credit || 'Uploaded image',
+      creditUrl: hero?.creditUrl || '',
+      source: 'upload',
+      uploadFilename: hero?.uploadFilename || url.split('/').pop()?.split('?')[0] || '',
+      viaGoogle: false,
+    };
+  }
+
   if (isUsableImageUrl(url)) {
     return {
       url,
@@ -60,6 +82,7 @@ export function normalizeHeroImage(hero, category = 'World') {
       credit: hero?.credit || '',
       creditUrl: hero?.creditUrl || '',
       source: hero?.source || 'original',
+      uploadFilename: hero?.uploadFilename || '',
       viaGoogle: !!hero?.viaGoogle,
     };
   }
@@ -69,6 +92,7 @@ export function normalizeHeroImage(hero, category = 'World') {
     credit: 'Unsplash',
     creditUrl: 'https://unsplash.com',
     source: 'placeholder',
+    uploadFilename: '',
     viaGoogle: false,
   };
 }
