@@ -3,6 +3,8 @@ import { Footer } from '@/components/layout/FooterNext';
 import { WeatherAnalysisDisplay } from '@/components/weather/WeatherAnalysisDisplay';
 import { fetchServerApi } from '@/lib/serverApi';
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }) {
   const { country, slug } = await params;
   const data = await fetchServerApi(`/site/weather/${country}/${slug}`, { revalidate: 1800 });

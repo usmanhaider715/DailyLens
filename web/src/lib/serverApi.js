@@ -2,7 +2,11 @@ const API_BASE = `${process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'h
 
 export async function fetchServerApi(path, { revalidate = 1800 } = {}) {
   const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await fetch(url, { next: { revalidate } });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await fetch(url, { next: { revalidate } });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }

@@ -102,8 +102,14 @@ EOF
 
 echo "→ Installing dependencies & building…"
 cd server && npm ci --omit=dev 2>/dev/null || npm install --production
+echo "→ Starting API temporarily for Next.js build…"
+node server.js &
+API_PID=$!
+sleep 6
 cd ../web && npm ci 2>/dev/null || npm install
 npm run build
+kill "$API_PID" 2>/dev/null || true
+sleep 1
 
 echo "→ Seeding database…"
 cd ../server

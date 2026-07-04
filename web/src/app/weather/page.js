@@ -3,6 +3,8 @@ import { Navbar } from '@/components/layout/NavbarNext';
 import { Footer } from '@/components/layout/FooterNext';
 import { fetchServerApi } from '@/lib/serverApi';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'US & UK Weather Forecast — 5-Day Outlook & Rain Chances',
   description:
