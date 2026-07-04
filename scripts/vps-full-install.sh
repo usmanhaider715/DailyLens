@@ -156,6 +156,13 @@ server {
     location = /feed.xml    { proxy_pass http://127.0.0.1:5001; }
     location = /health      { proxy_pass http://127.0.0.1:5001; }
 
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
