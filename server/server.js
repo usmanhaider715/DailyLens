@@ -36,6 +36,7 @@ import {
   buildRssFeed,
   buildLlmsTxt,
 } from './services/sitemapService.js';
+import { getHeroUploadDir } from './utils/heroFileUpload.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +69,14 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 app.use(apiLimiter);
+
+app.use(
+  '/uploads/heroes',
+  express.static(getHeroUploadDir(), {
+    maxAge: '365d',
+    immutable: true,
+  })
+);
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 

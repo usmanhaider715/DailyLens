@@ -17,6 +17,7 @@ const nextConfig = {
       { source: '/feed.xml', destination: `${apiUrl}/feed.xml` },
       { source: '/llms.txt', destination: `${apiUrl}/llms.txt` },
       { source: '/health', destination: `${apiUrl}/health` },
+      { source: '/uploads/:path*', destination: `${apiUrl}/uploads/:path*` },
     ];
   },
 };

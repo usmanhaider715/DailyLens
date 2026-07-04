@@ -2,11 +2,23 @@ import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
 import * as admin from '../controllers/adminController.js';
 import * as adminAi from '../controllers/adminAiController.js';
+import * as images from '../controllers/imageController.js';
 import { adminAiLimiter } from '../middleware/rateLimiter.js';
+import { heroUploadMiddleware } from '../middleware/uploadHero.js';
 
 const router = Router();
 
 router.use(requireAdmin);
+
+router.post('/upload-hero-image', (req, res, next) => {
+  heroUploadMiddleware(req, res, (err) => {
+    if (err) {
+      const status = err.status || 400;
+      return res.status(status).json({ message: err.message || 'Upload failed' });
+    }
+    images.uploadHeroImage(req, res, next);
+  });
+});
 
 router.get('/ads', admin.listAds);
 router.post('/ads', admin.createAd);

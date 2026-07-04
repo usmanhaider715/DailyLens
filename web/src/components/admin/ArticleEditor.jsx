@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -11,7 +11,7 @@ import { HeroImage } from '../common/HeroImage.jsx';
 import { loadAdminDraft, draftToEditorForm } from '@/utils/adminDraft';
 import { WriteNeatSection } from './WriteNeatSection.jsx';
 import { HeroImageSearchModal } from './HeroImageSearchModal.jsx';
-import { Search } from 'lucide-react';
+import { Search, Upload } from 'lucide-react';
 
 const categories = [
   'World',
@@ -38,6 +38,7 @@ const emptyForm = {
   heroImageAlt: '',
   heroImageCredit: '',
   heroImageCreditUrl: '',
+  heroImageSource: '',
   isBreaking: false,
   isFeatured: false,
   isPublished: true,
@@ -58,6 +59,8 @@ export function ArticleEditor() {
   const [saving, setSaving] = useState(false);
   const [aiFeedOpen, setAiFeedOpen] = useState(false);
   const [heroSearchOpen, setHeroSearchOpen] = useState(false);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const heroFileRef = useRef(null);
 
   useEffect(() => {
     if (!isNew) return;
@@ -85,6 +88,9 @@ export function ArticleEditor() {
           author: data.author || 'The Daily Lens Desk',
           heroImageUrl: data.heroImage?.url || '',
           heroImageAlt: data.heroImage?.alt || '',
+          heroImageCredit: data.heroImage?.credit || '',
+          heroImageCreditUrl: data.heroImage?.creditUrl || '',
+          heroImageSource: data.heroImage?.source || '',
           isBreaking: !!data.isBreaking,
           isFeatured: !!data.isFeatured,
           isPublished: data.isPublished !== false,
@@ -108,6 +114,36 @@ export function ArticleEditor() {
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
+  const uploadHeroFile = async (file) => {
+    if (!file) return;
+    setHeroUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      fd.append('title', form.title || 'Article hero');
+      fd.append('slug', form.slug || form.title || 'hero');
+      fd.append('alt', form.heroImageAlt || form.title || 'Article hero image');
+      const { data } = await api.post('/admin/upload-hero-image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm((f) => ({
+        ...f,
+        heroImageUrl: data.url,
+        heroImageAlt: data.alt || f.heroImageAlt || f.title,
+        heroImageCredit: data.credit || 'Uploaded image',
+        heroImageCreditUrl: '',
+        heroImageSource: 'upload',
+      }));
+      const kb = data.bytes ? Math.round(data.bytes / 1024) : null;
+      toast.success(kb ? `Hero uploaded & compressed (${kb} KB WebP)` : 'Hero image uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed');
+    } finally {
+      setHeroUploading(false);
+      if (heroFileRef.current) heroFileRef.current.value = '';
+    }
+  };
+
   const buildPayload = () => ({
     title: form.title,
     slug: form.slug || undefined,
@@ -125,7 +161,7 @@ export function ArticleEditor() {
           alt: form.heroImageAlt || form.title,
           credit: form.heroImageCredit || '',
           creditUrl: form.heroImageCreditUrl || '',
-          source: 'original',
+          source: form.heroImageSource || 'original',
         }
       : undefined,
     isBreaking: form.isBreaking,
@@ -300,7 +336,7 @@ export function ArticleEditor() {
             />
           </label>
           <div className="mt-3">
-            <span className="text-sm font-medium">Hero image URL</span>
+            <span className="text-sm font-medium">Hero image</span>
             <div className="mt-1 flex flex-wrap gap-2">
               <input
                 value={form.heroImageUrl}
@@ -308,17 +344,34 @@ export function ArticleEditor() {
                 placeholder="https://..."
                 className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               />
+              <input
+                ref={heroFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                className="hidden"
+                onChange={(e) => uploadHeroFile(e.target.files?.[0])}
+              />
+              <button
+                type="button"
+                disabled={heroUploading}
+                onClick={() => heroFileRef.current?.click()}
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                {heroUploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                Upload from file
+              </button>
               <button
                 type="button"
                 onClick={() => setHeroSearchOpen(true)}
                 className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-primary-600 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100 dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200"
               >
                 <Search className="h-4 w-4" />
-                Search another hero image
+                Search hero image
               </button>
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              Finds free-use photos from Wikimedia, Creative Commons (Google), and Unsplash.
+              Upload a photo (auto-compressed to WebP, max 1200px wide) or search Wikimedia, Creative Commons, and
+              Unsplash.
             </p>
           </div>
           {form.heroImageUrl && (
@@ -428,6 +481,7 @@ export function ArticleEditor() {
             heroImageAlt: f.heroImageAlt || form.title || img.alt,
             heroImageCredit: img.credit || f.heroImageCredit,
             heroImageCreditUrl: img.creditUrl || f.heroImageCreditUrl,
+            heroImageSource: img.source || 'original',
           }));
           setHeroSearchOpen(false);
           toast.success('Hero image updated');

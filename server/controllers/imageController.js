@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { isUsableImageUrl } from '../utils/heroImageUtils.js';
 import { assertPublicHttpUrl } from '../utils/ssrfGuard.js';
+import { saveCompressedHeroFile, heroUploadPublicUrl } from '../utils/heroFileUpload.js';
 
 const ALLOWED_TYPES = new Set([
   'image/jpeg',
@@ -46,6 +47,31 @@ export async function proxyHeroImage(req, res, next) {
   } catch (e) {
     if (e.status === 400) return res.status(400).json({ message: 'Invalid image URL' });
     if (e.response?.status === 404) return res.status(404).end();
+    next(e);
+  }
+}
+
+export async function uploadHeroImage(req, res, next) {
+  try {
+    if (!req.file?.buffer?.length) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    const slugHint = req.body?.slug || req.body?.title || 'hero';
+    const { filename, bytes } = await saveCompressedHeroFile(req.file.buffer, { slugHint });
+    const url = heroUploadPublicUrl(filename);
+
+    res.status(201).json({
+      url,
+      filename,
+      bytes,
+      alt: String(req.body?.alt || req.body?.title || 'Article hero image').slice(0, 160),
+      credit: req.body?.credit || 'Uploaded image',
+      creditUrl: '',
+      source: 'upload',
+    });
+  } catch (e) {
+    if (e.status === 400) return res.status(400).json({ message: e.message });
     next(e);
   }
 }
