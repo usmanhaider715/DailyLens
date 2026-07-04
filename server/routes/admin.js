@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/auth.js';
 import * as admin from '../controllers/adminController.js';
 import * as adminAi from '../controllers/adminAiController.js';
+import { adminAiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAdmin);
 
 router.get('/ads', admin.listAds);
 router.post('/ads', admin.createAd);
@@ -26,7 +27,13 @@ router.get('/analytics', admin.adminAnalytics);
 router.get('/settings', admin.getSettings);
 router.put('/settings', admin.updateSettings);
 
-router.get('/ai/news-feed', adminAi.getAiNewsFeed);
-router.post('/ai/generate-article', adminAi.generateArticleFromStory);
+router.get('/ai/news-feed', adminAiLimiter, adminAi.getAiNewsFeed);
+router.get('/ai/search-hero-images', adminAiLimiter, adminAi.searchHeroImages);
+router.get('/ai/google-trends', adminAiLimiter, adminAi.getGoogleTrends);
+router.get('/ai/google-news/24h', adminAiLimiter, adminAi.getGoogleNews24h);
+router.get('/ai/google-news/search', adminAiLimiter, adminAi.searchGoogleNewsAdmin);
+router.post('/ai/generate-article', adminAiLimiter, adminAi.generateArticleFromStory);
+router.post('/ai/generate-from-rough-text', adminAiLimiter, adminAi.generateArticleFromRoughText);
+router.post('/ai/generate-from-trend', adminAiLimiter, adminAi.generateArticleFromTrend);
 
 export default router;

@@ -44,7 +44,9 @@ export function ScoreCard({ game, size = 'default' }) {
   } ${
     live
       ? 'border-red-500/50 bg-gradient-to-br from-red-950/50 via-primary-950 to-gray-900 shadow-lg shadow-red-900/25'
-      : 'border-white/10 bg-white/5 hover:border-primary-400/40 hover:bg-white/10'
+      : final
+        ? 'border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-primary-950 to-gray-900'
+        : 'border-white/10 bg-white/5 hover:border-primary-400/40 hover:bg-white/10'
   }`;
 
   const inner = (
@@ -57,6 +59,15 @@ export function ScoreCard({ game, size = 'default' }) {
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
           Live
+        </span>
+      )}
+      {!live && final && (
+        <span
+          className={`absolute rounded-full bg-emerald-600/90 font-bold uppercase tracking-wider text-white ${
+            isHero ? '-top-3 right-6 px-3 py-1 text-xs' : '-top-2 right-3 px-2 py-0.5 text-[10px]'
+          }`}
+        >
+          Final
         </span>
       )}
       <div

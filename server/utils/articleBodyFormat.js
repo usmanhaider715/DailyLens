@@ -60,6 +60,29 @@ export function wrapLinksInEm(html) {
   });
 }
 
+export function buildArticleFaqHtml(faqSchema) {
+  if (!Array.isArray(faqSchema) || faqSchema.length === 0) return '';
+
+  const items = faqSchema
+    .slice(0, 4)
+    .map((item) => {
+      const q = stripHtml(item.question || item.q || '').trim();
+      const a = stripHtml(item.answer || item.a || '').trim();
+      if (!q || !a) return '';
+      return `<div class="article-faq-item"><dt class="article-faq-q"><strong>${escapeHtml(q)}</strong></dt><dd class="article-faq-a">${escapeHtml(a)}</dd></div>`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  if (!items) return '';
+
+  return `
+<section class="article-faq">
+  <h2><strong>Key questions</strong></h2>
+  <dl class="article-faq-list">${items}</dl>
+</section>`;
+}
+
 export function buildArticleFollowUpHtml(links) {
   if (!Array.isArray(links) || links.length === 0) return '';
 

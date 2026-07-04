@@ -7,6 +7,11 @@ import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { AiNewsFeedPanel } from './AiNewsFeedPanel.jsx';
+import { HeroImage } from '../common/HeroImage.jsx';
+import { loadAdminDraft, draftToEditorForm } from '@/utils/adminDraft';
+import { WriteNeatSection } from './WriteNeatSection.jsx';
+import { HeroImageSearchModal } from './HeroImageSearchModal.jsx';
+import { Search } from 'lucide-react';
 
 const categories = [
   'World',
@@ -52,6 +57,16 @@ export function ArticleEditor() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [aiFeedOpen, setAiFeedOpen] = useState(false);
+  const [heroSearchOpen, setHeroSearchOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isNew) return;
+    const stored = loadAdminDraft();
+    if (stored?.draft) {
+      setForm((f) => ({ ...f, ...draftToEditorForm(stored.draft) }));
+      toast.success('Draft loaded from preview — review and publish');
+    }
+  }, [isNew]);
 
   useEffect(() => {
     if (isNew) return;
@@ -190,6 +205,13 @@ export function ArticleEditor() {
         }}
       />
 
+      {isNew && (
+        <WriteNeatSection
+          onApplyToForm={(draft) => setForm((f) => ({ ...f, ...draft }))}
+          onPublished={() => router.push('/admin/articles')}
+        />
+      )}
+
       <form onSubmit={save} className="space-y-6">
         <section className="rounded-xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="font-display text-lg font-bold">Headline & story</h2>
@@ -277,15 +299,43 @@ export function ArticleEditor() {
               className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             />
           </label>
-          <label className="mt-3 block text-sm font-medium">
-            Hero image URL
-            <input
-              value={form.heroImageUrl}
-              onChange={(e) => set('heroImageUrl', e.target.value)}
-              placeholder="https://..."
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-            />
-          </label>
+          <div className="mt-3">
+            <span className="text-sm font-medium">Hero image URL</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                value={form.heroImageUrl}
+                onChange={(e) => set('heroImageUrl', e.target.value)}
+                placeholder="https://..."
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              />
+              <button
+                type="button"
+                onClick={() => setHeroSearchOpen(true)}
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-primary-600 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100 dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200"
+              >
+                <Search className="h-4 w-4" />
+                Search another hero image
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Finds free-use photos from Wikimedia, Creative Commons (Google), and Unsplash.
+            </p>
+          </div>
+          {form.heroImageUrl && (
+            <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <HeroImage
+                url={form.heroImageUrl}
+                alt={form.title || 'Preview'}
+                category={form.category}
+                className="h-40 w-full object-cover"
+              />
+              {/googleusercontent|gstatic\.com/i.test(form.heroImageUrl) && (
+                <p className="bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  This looks like a generic Google image. Clear the URL and regenerate, or paste a direct photo link.
+                </p>
+              )}
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-6">
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.isPublished} onChange={(e) => set('isPublished', e.target.checked)} />
@@ -364,6 +414,25 @@ export function ArticleEditor() {
           {saving ? 'Saving…' : isNew ? 'Publish article' : 'Save changes'}
         </button>
       </form>
+
+      <HeroImageSearchModal
+        open={heroSearchOpen}
+        title={form.title}
+        category={form.category}
+        currentUrl={form.heroImageUrl}
+        onClose={() => setHeroSearchOpen(false)}
+        onSelect={(img) => {
+          setForm((f) => ({
+            ...f,
+            heroImageUrl: img.url,
+            heroImageAlt: f.heroImageAlt || form.title || img.alt,
+            heroImageCredit: img.credit || f.heroImageCredit,
+            heroImageCreditUrl: img.creditUrl || f.heroImageCreditUrl,
+          }));
+          setHeroSearchOpen(false);
+          toast.success('Hero image updated');
+        }}
+      />
     </div>
   );
 }

@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { SearchBar } from '@/components/common/SearchBarNext';
 import { DarkModeToggle } from '@/components/common/DarkModeToggle';
+import { SiteLogo } from '@/components/common/SiteLogo';
 
 const cats = [
   ['World', 'World'],
@@ -26,9 +28,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="font-display text-xl font-bold text-primary-950 dark:text-white sm:text-2xl">
-          The Daily Lens
-        </Link>
+        <SiteLogo />
         <nav className="hidden items-center gap-5 lg:flex">
           {cats.map(([label, path]) => {
             const href = `/category/${encodeURIComponent(path)}`;
@@ -51,12 +51,13 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <SearchBar className="hidden md:block" />
           <DarkModeToggle />
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={() => toast('This feature will be available in the near future.', { icon: '📬' })}
             className="hidden rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 sm:inline"
           >
             Subscribe
-          </Link>
+          </button>
           <button
             type="button"
             className="rounded-md p-2 text-gray-700 lg:hidden dark:text-gray-200"

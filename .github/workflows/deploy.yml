@@ -7,16 +7,16 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.repository == 'usmanhaider715/DailyLens'
     steps:
-      - name: Deploy over SSH
+      - name: Deploy over SSH to Hostinger VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.PORT }}
+          port: ${{ secrets.PORT || 22 }}
           script: |
-            cd /var/www/newssite && git pull origin main
-            cd server && npm install --production
-            cd ../web && npm install && npm run build
-            pm2 reload ecosystem.config.cjs --update-env
+            set -e
+            cd /var/www/dailylens
+            bash scripts/deploy-vps-from-github.sh

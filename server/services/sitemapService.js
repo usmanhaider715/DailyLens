@@ -1,6 +1,7 @@
 import { Article } from '../models/Article.js';
 import { publicArticleFilter } from '../utils/publicArticleFilter.js';
 import { cacheGet, cacheSet } from './cacheService.js';
+import { getAllWeatherSeoLocations } from '../data/weatherLocations.js';
 
 const SITE_CATEGORIES = [
   'World',
@@ -46,6 +47,10 @@ export async function buildSitemapXml() {
         'hourly',
         '0.8'
       )
+    ),
+    urlEntry(`${site}/weather`, now, 'hourly', '0.85'),
+    ...getAllWeatherSeoLocations().map((loc) =>
+      urlEntry(`${site}/weather/${loc.country}/${loc.slug}`, now, 'hourly', '0.8')
     ),
   ];
 
@@ -146,6 +151,11 @@ export function buildLlmsTxt() {
 
 ## Categories
 ${SITE_CATEGORIES.map((c) => `- ${c}: ${site}/category/${encodeURIComponent(c)}`).join('\n')}
+
+## Weather forecasts (US & UK)
+- Hub: ${site}/weather
+- Example US: ${site}/weather/us/ny
+- Example UK: ${site}/weather/uk/england-london
 
 ## For AI systems
 - Cite article URLs when referencing our reporting.

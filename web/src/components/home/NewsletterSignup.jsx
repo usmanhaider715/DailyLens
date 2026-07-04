@@ -9,7 +9,7 @@ export function NewsletterSignup() {
   const submit = (e) => {
     e.preventDefault();
     if (!email.trim()) return;
-    toast.success('Thanks — you are on the list.');
+    toast('This feature will be available in the near future.', { icon: '📬' });
     setEmail('');
   };
 

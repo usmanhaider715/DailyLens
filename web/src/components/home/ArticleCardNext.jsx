@@ -5,6 +5,7 @@ import { CategoryBadge } from '@/components/common/CategoryBadge';
 import { formatArticleDate } from '@/utils/formatDate';
 import { truncateText } from '@/utils/truncateText';
 import { stripHtml } from '@/utils/stripHtml';
+import { HeroImageFrame } from '@/components/common/HeroImageFrame';
 
 export function ArticleCard({ article, variant = 'default' }) {
   if (!article) return null;
@@ -14,11 +15,13 @@ export function ArticleCard({ article, variant = 'default' }) {
   if (variant === 'compact') {
     return (
       <Link href={href} className="group flex gap-3">
-        <img
-          src={article.heroImage?.url || '/favicon.svg'}
-          alt=""
-          className="h-16 w-24 shrink-0 rounded-md object-cover"
-          loading="lazy"
+        <HeroImageFrame
+          url={article.heroImage?.url}
+          alt={article.title}
+          category={article.category}
+          aspect="4/3"
+          className="w-24 shrink-0"
+          rounded="md"
         />
         <div className="min-w-0">
           <div className="line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-primary-700 dark:text-gray-100">
@@ -33,11 +36,11 @@ export function ArticleCard({ article, variant = 'default' }) {
   return (
     <article className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <Link href={href} className="block">
-        <img
-          src={article.heroImage?.url || '/favicon.svg'}
-          alt=""
-          className="h-48 w-full object-cover"
-          loading="lazy"
+        <HeroImageFrame
+          url={article.heroImage?.url}
+          alt={article.title}
+          category={article.category}
+          aspect="16/10"
         />
         <div className="p-4">
           <CategoryBadge category={article.category} />

@@ -16,6 +16,16 @@ export function requireAuth(req, res, next) {
   }
 }
 
+export function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'editor') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    next();
+  });
+}
+
 export async function optionalAuth(req, res, next) {
   const header = req.headers.authorization;
   if (header?.startsWith('Bearer ')) {

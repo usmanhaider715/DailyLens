@@ -53,7 +53,7 @@ export function LiveMatchHero({ embedded = false }) {
             : 'border-gray-200 text-gray-500 dark:border-gray-700'
         }`}
       >
-        Live match not available. Choose a match in Admin → Homepage.
+        Live match not available right now. Check back shortly.
       </div>
     );
     if (embedded) return empty;

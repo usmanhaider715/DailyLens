@@ -103,6 +103,18 @@ export function LiveScoreboard({ compact = false }) {
     return list.filter((g) => g.competition === eventFilter);
   }, [games, hasEventFilter, eventFilter]);
 
+  const { liveGames, upcomingGames, recentGames } = useMemo(() => {
+    const live = [];
+    const upcoming = [];
+    const recent = [];
+    for (const g of displayGames) {
+      if (g.isLive || g.status === 'in') live.push(g);
+      else if (g.isFinal || g.status === 'post') recent.push(g);
+      else upcoming.push(g);
+    }
+    return { liveGames: live, upcomingGames: upcoming, recentGames: recent };
+  }, [displayGames]);
+
   if (compact && !displayGames.length && !loading) return null;
 
   const pollLabel = FAST_POLL_LEAGUES.has(activeLeague) ? 'every 20 seconds' : 'every 30 seconds';
@@ -118,7 +130,9 @@ export function LiveScoreboard({ compact = false }) {
             </div>
             <div>
               <h2 className="font-display text-xl font-bold text-white sm:text-2xl">Live Scoreboard</h2>
-              <p className="text-xs text-primary-200/80">Live scores · updates {pollLabel}</p>
+              <p className="text-xs text-primary-200/80">
+                Live, upcoming &amp; recent results · updates {pollLabel}
+              </p>
             </div>
           </div>
           <button
@@ -185,10 +199,16 @@ export function LiveScoreboard({ compact = false }) {
             {eventFilter !== 'all' ? 'No matches for this competition right now.' : 'No games scheduled right now.'}
           </p>
         ) : (
-          <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
-            {displayGames.map((g) => (
-              <ScoreCard key={g.id} game={g} />
-            ))}
+          <div className="mt-5 space-y-5">
+            {liveGames.length > 0 && (
+              <ScoreboardRow label="Live now" games={liveGames} accent="live" />
+            )}
+            {upcomingGames.length > 0 && (
+              <ScoreboardRow label="Upcoming" games={upcomingGames} accent="upcoming" />
+            )}
+            {recentGames.length > 0 && (
+              <ScoreboardRow label="Recent results" games={recentGames} accent="final" />
+            )}
           </div>
         )}
         {updatedAt && (
@@ -198,5 +218,25 @@ export function LiveScoreboard({ compact = false }) {
         )}
       </div>
     </section>
+  );
+}
+
+function ScoreboardRow({ label, games, accent }) {
+  const accentCls =
+    accent === 'live'
+      ? 'text-breaking'
+      : accent === 'final'
+        ? 'text-emerald-300'
+        : 'text-sky-300';
+
+  return (
+    <div>
+      <p className={`mb-2 text-[10px] font-bold uppercase tracking-widest ${accentCls}`}>{label}</p>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {games.map((g) => (
+          <ScoreCard key={g.id} game={g} />
+        ))}
+      </div>
+    </div>
   );
 }

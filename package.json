@@ -1,0 +1,16 @@
+{
+  "name": "dailylens",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Daily Lens — Next.js frontend + Express API (Hostinger upload bundle root)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix web",
+    "postinstall": "npm run install:all",
+    "build": "npm run build --prefix web",
+    "start": "node start.js"
+  }
+}

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { cacheGet, cacheSet } from './cacheService.js';
 import { getLiveCacheTtl } from '../utils/liveCacheTtl.js';
+import { sortScoreboardGames } from '../utils/scoreboardSort.js';
 
 const SPORTS_DB = 'https://www.thesportsdb.com/api/v1/json/3';
 const FIXTURES_CACHE_KEY = 'live:scores:cricket:fixtures';
@@ -37,6 +38,9 @@ const FRANCHISE_LEAGUE_IDS = [
 
 const ALL_LEAGUE_IDS = [...new Set([...ICC_LEAGUE_IDS, ...FRANCHISE_LEAGUE_IDS])];
 const ICC_SEASON_IDS = ['5103', '5100', '4979', '4575', '4801', '4844'];
+/** Leagues to pull last completed fixtures from */
+const PAST_RESULTS_LEAGUE_IDS = ['4460', '4461', '4462', '4463', '4575', '4801'];
+const RECENT_DAY_OFFSETS = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2];
 
 function formatDate(d) {
   return d.toISOString().slice(0, 10);
@@ -126,6 +130,8 @@ function mapCricketEvent(ev) {
     statusText,
     clock: ev.strTimeLocal || ev.strTime || '',
     startsAt: startsAt?.toISOString() || null,
+    completedAt: isFinal && startsAt ? startsAt.toISOString() : null,
+    eventDate: startsAt?.toISOString() || null,
     isLive,
     isFinal,
     venue: ev.strVenue || null,
@@ -186,6 +192,9 @@ function mapCricketDataMatch(m) {
     statusText,
     clock: m.dateTimeGMT || '',
     startsAt: startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt.toISOString() : null,
+    completedAt:
+      isFinal && startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt.toISOString() : null,
+    eventDate: startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt.toISOString() : null,
     isLive,
     isFinal,
     venue: m.venue || null,
@@ -242,16 +251,25 @@ function collectEvents(results) {
   return [...byId.values()];
 }
 
-/** Light fetch: today + yesterday + tomorrow only (3 calls). */
+/** Light fetch: past week + today + next 2 days. */
 async function fetchTheSportsDbRecentDays() {
   const today = new Date();
-  const dates = [-1, 0, 1].map((offset) =>
+  const dates = RECENT_DAY_OFFSETS.map((offset) =>
     formatDate(new Date(today.getTime() + offset * 86400000)),
   );
   const dayResults = await Promise.allSettled(
     dates.map((d) => sportsDbGet('eventsday.php', { d, s: 'Cricket' })),
   );
   return collectEvents(dayResults);
+}
+
+async function fetchTheSportsDbPastLeagues() {
+  const pastResults = await fetchInBatches(
+    PAST_RESULTS_LEAGUE_IDS,
+    (id) => sportsDbGet('eventspastleague.php', { id }),
+    2,
+  );
+  return collectEvents(pastResults).slice(0, 80);
 }
 
 /** Full fetch: recent days + league fixtures (cached separately). */
@@ -300,20 +318,6 @@ async function fetchCricketDataMatches() {
   }
 }
 
-function sortGames(games) {
-  const rank = (g) => {
-    if (g.isLive) return 0;
-    if (g.status === 'pre') return 1;
-    return 2;
-  };
-  return games.sort((a, b) => {
-    const r = rank(a) - rank(b);
-    if (r !== 0) return r;
-    if (a.startsAt && b.startsAt) return new Date(a.startsAt) - new Date(b.startsAt);
-    return 0;
-  });
-}
-
 function mergeGameLists(...lists) {
   const byId = new Map();
   for (const list of lists) {
@@ -321,7 +325,7 @@ function mergeGameLists(...lists) {
       if (g?.id) byId.set(g.id, g);
     }
   }
-  return sortGames([...byId.values()]).slice(0, 40);
+  return sortScoreboardGames([...byId.values()]).slice(0, 48);
 }
 
 function buildPayload(games, sources, fetchedAt = new Date().toISOString()) {
@@ -348,14 +352,20 @@ export async function getCricketScores({ refresh = false } = {}) {
   const previousGames = cached?.games || [];
   const useFullFetch = !cached?.games?.length;
 
-  const [sportsDbResult, cricketDataResult] = await Promise.allSettled([
+  const [sportsDbResult, pastLeaguesResult, cricketDataResult] = await Promise.allSettled([
     useFullFetch ? fetchTheSportsDbFull() : fetchTheSportsDbRecentDays(),
+    fetchTheSportsDbPastLeagues(),
     fetchCricketDataMatches(),
   ]);
 
   const freshMapped = [];
   if (sportsDbResult.status === 'fulfilled') {
     for (const ev of sportsDbResult.value) {
+      freshMapped.push(mapCricketEvent(ev));
+    }
+  }
+  if (pastLeaguesResult.status === 'fulfilled') {
+    for (const ev of pastLeaguesResult.value) {
       freshMapped.push(mapCricketEvent(ev));
     }
   }

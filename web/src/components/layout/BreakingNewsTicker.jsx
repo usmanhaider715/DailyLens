@@ -40,12 +40,12 @@ export function BreakingNewsTicker() {
   return (
     <div className="relative z-40 flex h-11 w-full items-center bg-breaking text-white">
       <div className="flex shrink-0 items-center gap-2 px-3">
-        <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide animate-pulseFlash">
+        <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide animate-pulse-flash">
           Breaking
         </span>
       </div>
       <div className="relative min-w-0 flex-1 overflow-hidden">
-        <div className="flex w-max animate-scrollLeft hover:[animation-play-state:paused]">
+        <div className="flex w-max animate-scroll-left will-change-transform hover:[animation-play-state:paused]">
           {doubled.map((it, idx) => (
             <div key={`${it.key}-${idx}`} className="flex items-center whitespace-nowrap pr-16 text-sm font-medium">
               <Link href={it.slug?.startsWith('http') ? '#' : `/article/${it.slug}`} className="hover:underline">

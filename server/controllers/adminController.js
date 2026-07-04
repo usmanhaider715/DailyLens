@@ -2,7 +2,7 @@ import { Article } from '../models/Article.js';
 import { AdSlot } from '../models/AdSlot.js';
 import { getSiteSettings } from '../models/SiteSettings.js';
 import { NewsSource } from '../models/NewsSource.js';
-import { emitBreakingNews } from '../services/socketService.js';
+import { emitBreakingNews, getLiveTrafficStats } from '../services/socketService.js';
 import { runManualFetch as runManualFetchJob } from '../jobs/newsFetcher.js';
 import { invalidateArticleCaches } from './articleController.js';
 import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.js';
@@ -221,6 +221,12 @@ export async function updateSettings(req, res, next) {
       'homepageLiveMatchId',
       'homepageLiveMatchLeague',
       'homepageWeatherRegion',
+      'homepageWeatherUseVisitorLocation',
+      'homepageWeatherCountry',
+      'homepageWeatherState',
+      'homepageWeatherCityId',
+      'homepageShowCryptoChart',
+      'homepageCryptoCoinId',
     ];
     for (const k of allowed) {
       if (s[k] !== undefined) doc[k] = s[k];
@@ -293,7 +299,13 @@ export async function adminAnalytics(req, res, next) {
       { $limit: 8 },
     ]);
 
-    res.json({ totalViews, articlesToday, trending, topCategories });
+    res.json({
+      totalViews,
+      articlesToday,
+      trending,
+      topCategories,
+      liveTraffic: getLiveTrafficStats(),
+    });
   } catch (e) {
     next(e);
   }

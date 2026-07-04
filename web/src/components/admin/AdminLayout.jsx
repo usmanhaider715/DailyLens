@@ -11,6 +11,7 @@ import {
   Cpu,
   LogOut,
   Home,
+  TrendingUp,
 } from 'lucide-react';
 
 const links = [
@@ -20,6 +21,7 @@ const links = [
   { href: '/admin/articles/new', label: 'Write article', icon: FileText },
   { href: '/admin/breaking', label: 'Breaking News', icon: Megaphone },
   { href: '/admin/ads', label: 'Ad Manager', icon: ImageIcon },
+  { href: '/admin/trends', label: 'Google News', icon: TrendingUp },
   { href: '/admin/ai', label: 'AI Settings', icon: Cpu },
 ];
 
@@ -31,7 +33,10 @@ export function AdminLayout({ children }) {
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       <aside className="hidden w-64 shrink-0 bg-primary-950 text-white md:block">
-        <div className="px-6 py-6 font-display text-xl font-bold">The Daily Lens Admin</div>
+        <div className="flex items-center gap-2 px-6 py-6">
+          <img src="/logo.png" alt="" className="h-8 w-8 object-contain" />
+          <span className="font-display text-xl font-bold">Admin</span>
+        </div>
         <nav className="space-y-1 px-3">
           {links.map((l) => {
             const active = l.exact ? pathname === l.href : pathname.startsWith(l.href);

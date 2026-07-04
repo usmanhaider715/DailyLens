@@ -2,6 +2,7 @@ import { Article } from '../models/Article.js';
 import { slugify } from './slugify.js';
 import { hashUrl } from './hashUrl.js';
 import { stripHtml } from './stripHtml.js';
+import { normalizeHeroImage } from './heroImageUtils.js';
 
 export async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -40,15 +41,18 @@ export function buildArticlePayload(input, existing = null) {
     category: input.category || 'World',
     tags: Array.isArray(input.tags) ? input.tags : [],
     author: input.author || 'The Daily Lens Desk',
-    heroImage: input.heroImage?.url
-      ? {
-          url: input.heroImage.url,
-          alt: input.heroImage.alt || title,
-          credit: input.heroImage.credit || '',
-          creditUrl: input.heroImage.creditUrl || '',
-          source: input.heroImage.source || 'original',
-        }
-      : existing?.heroImage || { url: '', alt: title, source: 'placeholder' },
+    heroImage: normalizeHeroImage(
+      input.heroImage?.url
+        ? {
+            url: input.heroImage.url,
+            alt: input.heroImage.alt || title,
+            credit: input.heroImage.credit || '',
+            creditUrl: input.heroImage.creditUrl || '',
+            source: input.heroImage.source || 'original',
+          }
+        : existing?.heroImage,
+      input.category || existing?.category || 'World'
+    ),
     seoScore: input.seoScore ?? existing?.seoScore ?? 7,
     readTime: input.readTime ?? estimateReadTime(body),
     isBreaking: !!input.isBreaking,
@@ -66,12 +70,27 @@ export function buildArticlePayload(input, existing = null) {
   };
 
   if (!existing) {
-    const manualUrl = `manual://${slugBase}-${Date.now()}`;
     payload.slug = slugBase;
-    payload.originalUrl = manualUrl;
-    payload.urlHash = hashUrl(manualUrl);
-    payload.originalTitle = title;
-    payload.source = { name: 'The Daily Lens', url: '' };
+    const sourceUrl = String(input.originalUrl || '').trim();
+    if (sourceUrl && /^https?:\/\//i.test(sourceUrl)) {
+      payload.originalUrl = sourceUrl;
+      payload.urlHash = input.urlHash || hashUrl(sourceUrl);
+      payload.originalTitle = input.originalTitle?.trim() || title;
+      payload.source = input.source?.name
+        ? {
+            name: input.source.name,
+            url: input.source.url || sourceUrl,
+          }
+        : { name: 'News source', url: sourceUrl };
+      payload.sourceType = 'automated';
+      payload.aiProcessedAt = input.aiProcessedAt || new Date();
+    } else {
+      const manualUrl = `manual://${slugBase}-${Date.now()}`;
+      payload.originalUrl = manualUrl;
+      payload.urlHash = hashUrl(manualUrl);
+      payload.originalTitle = title;
+      payload.source = { name: 'The Daily Lens', url: '' };
+    }
   }
 
   return payload;

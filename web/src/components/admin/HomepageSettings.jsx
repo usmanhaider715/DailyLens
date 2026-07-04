@@ -6,6 +6,38 @@ import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { ScoreCard } from '../home/ScoreWidgets.jsx';
 import { WeatherForecastPanel } from '../home/WeatherForecastPanel.jsx';
+import { inferUkRegionIdFromCityComposite } from '@/utils/weatherRegionUtils';
+
+function normalizeLoadedSettings(raw) {
+  const s = { ...raw };
+  if (!s.homepageWeatherCountry) {
+    s.homepageWeatherCountry = s.homepageWeatherRegion === 'uk' ? 'uk' : 'us';
+  }
+  if (s.homepageWeatherUseVisitorLocation === undefined) {
+    s.homepageWeatherUseVisitorLocation = true;
+  }
+  if (!s.homepageWeatherState) s.homepageWeatherState = 'NY';
+  if (s.homepageWeatherCityId === undefined) s.homepageWeatherCityId = '';
+  if (s.homepageWeatherCountry === 'uk' && !s.homepageWeatherCityId) {
+    s.homepageWeatherCityId = 'england-london';
+  }
+  if (s.homepageShowCryptoChart === undefined) s.homepageShowCryptoChart = true;
+  if (!s.homepageCryptoCoinId) s.homepageCryptoCoinId = 'bitcoin';
+  return s;
+}
+
+function buildWeatherPreviewParams(settings) {
+  if (settings.homepageWeatherUseVisitorLocation !== false) {
+    if (settings.homepageWeatherCountry === 'uk' && settings.homepageWeatherCityId) {
+      return { country: 'uk', cityId: settings.homepageWeatherCityId };
+    }
+    return { country: 'us', state: settings.homepageWeatherState || 'NY' };
+  }
+  if (settings.homepageWeatherCountry === 'uk' && settings.homepageWeatherCityId) {
+    return { country: 'uk', cityId: settings.homepageWeatherCityId };
+  }
+  return { country: 'us', state: settings.homepageWeatherState || 'NY' };
+}
 
 export function HomepageSettings() {
   const [loading, setLoading] = useState(true);
@@ -15,11 +47,27 @@ export function HomepageSettings() {
   const [matchLeague, setMatchLeague] = useState('cricket');
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [weatherPreview, setWeatherPreview] = useState(null);
+  const [locationCatalog, setLocationCatalog] = useState(null);
+  const [ukRmaRegion, setUkRmaRegion] = useState('');
+  const [cryptoCoins, setCryptoCoins] = useState([]);
 
-  const loadSettings = useCallback(async () => {
-    const { data } = await api.get('/admin/settings');
-    setSettings(data.settings);
-    setMatchLeague(data.settings?.homepageLiveMatchLeague || 'cricket');
+  const loadWeatherPreview = useCallback(async (s) => {
+    try {
+      const params = buildWeatherPreviewParams(s);
+      const { data } = await api.get('/site/weather', { params });
+      setWeatherPreview(data);
+    } catch {
+      setWeatherPreview(null);
+    }
+  }, []);
+
+  const loadLocationCatalog = useCallback(async () => {
+    try {
+      const { data } = await api.get('/site/weather/regions');
+      setLocationCatalog(data);
+    } catch {
+      setLocationCatalog(null);
+    }
   }, []);
 
   const loadMatches = useCallback(async (league) => {
@@ -35,23 +83,22 @@ export function HomepageSettings() {
     }
   }, []);
 
-  const loadWeatherPreview = useCallback(async (region) => {
-    try {
-      const { data } = await api.get('/site/weather', { params: { region: region || 'usa' } });
-      setWeatherPreview(data);
-    } catch {
-      setWeatherPreview(null);
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        await loadSettings();
-        if (!cancelled) {
-          await loadMatches('cricket');
-          await loadWeatherPreview('usa');
+        await loadLocationCatalog();
+        const { data } = await api.get('/admin/settings');
+        if (cancelled) return;
+        const normalized = normalizeLoadedSettings(data.settings);
+        setSettings(normalized);
+        setMatchLeague(data.settings?.homepageLiveMatchLeague || 'cricket');
+        await loadMatches('cricket');
+        try {
+          const { data: cryptoData } = await api.get('/site/crypto/coins');
+          if (!cancelled) setCryptoCoins(cryptoData.coins || []);
+        } catch {
+          /* optional */
         }
       } catch {
         if (!cancelled) toast.error('Failed to load settings');
@@ -62,7 +109,33 @@ export function HomepageSettings() {
     return () => {
       cancelled = true;
     };
-  }, [loadSettings, loadMatches, loadWeatherPreview]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time bootstrap
+  }, []);
+
+  useEffect(() => {
+    if (!settings || !locationCatalog || settings.homepageHeroMode !== 'weather') return;
+    const cid = settings.homepageWeatherCityId || '';
+    const inferred =
+      settings.homepageWeatherCountry === 'uk'
+        ? inferUkRegionIdFromCityComposite(locationCatalog, cid)
+        : '';
+    setUkRmaRegion(inferred);
+  }, [settings, locationCatalog]);
+
+  /** Keep preview synced when editors change preset fields while on weather hero */
+  useEffect(() => {
+    if (loading || !settings || settings.homepageHeroMode !== 'weather') return;
+    loadWeatherPreview(settings);
+  }, [
+    loading,
+    settings?.homepageHeroMode,
+    settings?.homepageWeatherUseVisitorLocation,
+    settings?.homepageWeatherCountry,
+    settings?.homepageWeatherState,
+    settings?.homepageWeatherCityId,
+    loadWeatherPreview,
+    settings,
+  ]);
 
   const groupedMatches = useMemo(() => {
     const map = new Map();
@@ -77,6 +150,10 @@ export function HomepageSettings() {
   const selectedMatch = matches.find((m) => m.id === settings?.homepageLiveMatchId);
   const heroMode = settings?.homepageHeroMode || 'featured';
 
+  const us = locationCatalog?.countries?.find((c) => c.id === 'us');
+  const uk = locationCatalog?.countries?.find((c) => c.id === 'uk');
+  const ukRegionSel = uk?.regions?.find((r) => r.id === ukRmaRegion);
+
   const save = async () => {
     setSaving(true);
     try {
@@ -90,6 +167,8 @@ export function HomepageSettings() {
   };
 
   if (loading || !settings) return <Spinner />;
+
+  const visitorMode = settings.homepageWeatherUseVisitorLocation !== false;
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -136,13 +215,15 @@ export function HomepageSettings() {
               checked={heroMode === 'weather'}
               onChange={() => {
                 setSettings({ ...settings, homepageHeroMode: 'weather' });
-                loadWeatherPreview(settings.homepageWeatherRegion || 'usa');
+                loadWeatherPreview({ ...settings, homepageHeroMode: 'weather' });
               }}
               className="mt-1"
             />
             <span>
               <span className="block text-sm font-medium text-gray-900 dark:text-white">Weather forecast</span>
-              <span className="text-xs text-gray-500">5-day outlook for USA or UK cities (Open-Meteo)</span>
+              <span className="text-xs text-gray-500">
+                Open-Meteo 5-day outlook — visitor location or a fixed US state / UK city
+              </span>
             </span>
           </label>
         </div>
@@ -212,29 +293,210 @@ export function HomepageSettings() {
 
       {heroMode === 'weather' && (
         <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-            Forecast region
-            <select
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-              value={settings.homepageWeatherRegion || 'usa'}
-              onChange={(e) => {
-                const region = e.target.value;
-                setSettings({ ...settings, homepageWeatherRegion: region });
-                loadWeatherPreview(region);
-              }}
-            >
-              <option value="usa">United States (NY, LA, Chicago)</option>
-              <option value="uk">United Kingdom (London, Manchester, Edinburgh)</option>
-            </select>
-          </label>
-          {weatherPreview && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            On the homepage, visitors can refine location with the dropdowns. Geolocation prompts only appear when enabled below.
+          </p>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Forecast source</p>
+            <label className="flex cursor-pointer items-start gap-2">
+              <input
+                type="radio"
+                name="wxSource"
+                checked={visitorMode}
+                onChange={() => {
+                  const next = {
+                    ...settings,
+                    homepageWeatherUseVisitorLocation: true,
+                  };
+                  setSettings(next);
+                  loadWeatherPreview(next);
+                }}
+                className="mt-1"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900 dark:text-white">Visitor’s current location</span>
+                <span className="text-xs text-gray-500">
+                  Browser geolocation first; if unavailable, uses your fallback fixed location below
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2">
+              <input
+                type="radio"
+                name="wxSource"
+                checked={!visitorMode}
+                onChange={() => {
+                  const next = {
+                    ...settings,
+                    homepageWeatherUseVisitorLocation: false,
+                  };
+                  setSettings(next);
+                  loadWeatherPreview(next);
+                }}
+                className="mt-1"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900 dark:text-white">Fixed location</span>
+                <span className="text-xs text-gray-500">Same forecast for every visitor — no GPS prompt</span>
+              </span>
+            </label>
+          </div>
+
+          <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-950/40">
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Fallback / fixed area</p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {visitorMode
+                ? 'Used when access to location is denied or unavailable.'
+                : 'Homepage hero shows this area for everyone.'}
+            </p>
+
+            <label className="mt-3 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Country
+              <select
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                value={settings.homepageWeatherCountry || 'us'}
+                onChange={(e) => {
+                  const c = e.target.value;
+                  const next = {
+                    ...settings,
+                    homepageWeatherCountry: c,
+                    homepageWeatherState: c === 'us' ? settings.homepageWeatherState || 'NY' : settings.homepageWeatherState,
+                    homepageWeatherCityId: c === 'uk' ? settings.homepageWeatherCityId || '' : '',
+                  };
+                  setSettings(next);
+                  setUkRmaRegion(c === 'uk' ? inferUkRegionIdFromCityComposite(locationCatalog, next.homepageWeatherCityId) : '');
+                  loadWeatherPreview(next);
+                }}
+              >
+                <option value="us">United States (all 50 states + D.C.)</option>
+                <option value="uk">United Kingdom (England, Scotland, Wales, N. Ireland)</option>
+              </select>
+            </label>
+
+            {settings.homepageWeatherCountry === 'us' && (
+              <label className="mt-3 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                State / territory (capital coordinates)
+                <select
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  value={settings.homepageWeatherState || ''}
+                  onChange={(e) => {
+                    const next = { ...settings, homepageWeatherState: e.target.value };
+                    setSettings(next);
+                    loadWeatherPreview(next);
+                  }}
+                >
+                  <option value="">Select state</option>
+                  {us?.states?.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {settings.homepageWeatherCountry === 'uk' && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Region
+                  <select
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                    value={ukRmaRegion}
+                    onChange={(e) => {
+                      const rId = e.target.value;
+                      setUkRmaRegion(rId);
+                      const firstCity = uk?.regions?.find((r) => r.id === rId)?.cities?.[0];
+                      const next = {
+                        ...settings,
+                        homepageWeatherCityId: firstCity?.id || '',
+                      };
+                      setSettings(next);
+                      if (firstCity?.id) loadWeatherPreview(next);
+                    }}
+                  >
+                    <option value="">Select region</option>
+                    {uk?.regions?.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  City
+                  <select
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                    value={settings.homepageWeatherCityId || ''}
+                    disabled={!ukRmaRegion}
+                    onChange={(e) => {
+                      const next = { ...settings, homepageWeatherCityId: e.target.value };
+                      setSettings(next);
+                      if (e.target.value) loadWeatherPreview(next);
+                    }}
+                  >
+                    <option value="">Select city</option>
+                    {ukRegionSel?.cities?.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {weatherPreview?.forecast ? (
             <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Preview</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Preview {visitorMode ? '(fallback / manual pick — not GPS)' : ''}
+              </p>
               <WeatherForecastPanel forecast={weatherPreview} size="hero" />
             </div>
+          ) : (
+            <p className="text-sm text-gray-500">Pick a complete location for preview.</p>
           )}
         </div>
       )}
+
+      <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">Crypto price chart</p>
+        <p className="text-xs text-gray-500">
+          Live chart below the featured hero on the homepage. Always shown on the Crypto category page.
+        </p>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={settings.homepageShowCryptoChart !== false}
+            onChange={(e) =>
+              setSettings({ ...settings, homepageShowCryptoChart: e.target.checked })
+            }
+          />
+          <span className="text-sm text-gray-800 dark:text-gray-200">Show crypto chart on homepage</span>
+        </label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+          Default coin on homepage
+          <select
+            className="mt-1 w-full max-w-md rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            value={settings.homepageCryptoCoinId || 'bitcoin'}
+            onChange={(e) =>
+              setSettings({ ...settings, homepageCryptoCoinId: e.target.value })
+            }
+            disabled={settings.homepageShowCryptoChart === false}
+          >
+            {cryptoCoins.length ? (
+              cryptoCoins.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.symbol} — {c.name}
+                </option>
+              ))
+            ) : (
+              <option value="bitcoin">BTC — Bitcoin</option>
+            )}
+          </select>
+        </label>
+      </div>
 
       <button
         type="button"
@@ -247,4 +509,3 @@ export function HomepageSettings() {
     </div>
   );
 }
-

@@ -28,7 +28,7 @@ export function ForecastWidget() {
   return (
     <div className="rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900 dark:bg-primary-950/40">
       <h3 className="font-display text-lg font-bold text-primary-950 dark:text-white">Forecasts</h3>
-      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Editorial outlook from The Daily Lens desk</p>
+      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Outlook and analysis from our desk</p>
       <ul className="mt-4 space-y-4">
         {items.map((a) => (
           <li key={a._id || a.slug} className="border-t border-primary-100 pt-3 first:border-0 first:pt-0 dark:border-primary-900">

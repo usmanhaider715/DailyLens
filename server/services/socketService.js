@@ -1,4 +1,6 @@
 let ioRef = null;
+let peakLiveCount = 0;
+const serverStartedAt = new Date();
 
 export function setSocketIO(io) {
   ioRef = io;
@@ -6,6 +8,25 @@ export function setSocketIO(io) {
 
 export function getIO() {
   return ioRef;
+}
+
+export function getLiveConnectionCount() {
+  if (!ioRef) return 0;
+  return typeof ioRef.engine?.clientsCount === 'number'
+    ? ioRef.engine.clientsCount
+    : ioRef.sockets?.sockets?.size ?? 0;
+}
+
+export function getLiveTrafficStats() {
+  const liveNow = getLiveConnectionCount();
+  if (liveNow > peakLiveCount) peakLiveCount = liveNow;
+  return {
+    liveNow,
+    peakSinceRestart: peakLiveCount,
+    serverStartedAt: serverStartedAt.toISOString(),
+    displayLocation: 'Breaking news ticker (top bar)',
+    method: 'socket.io',
+  };
 }
 
 export function emitBreakingNews(payload) {
@@ -22,10 +43,8 @@ export function emitLiveCount(n) {
 
 export function broadcastLiveCount() {
   if (!ioRef) return;
-  const n =
-    typeof ioRef.engine?.clientsCount === 'number'
-      ? ioRef.engine.clientsCount
-      : ioRef.sockets?.sockets?.size ?? 0;
+  const n = getLiveConnectionCount();
+  if (n > peakLiveCount) peakLiveCount = n;
   emitLiveCount(n);
 }
 

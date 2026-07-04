@@ -1,6 +1,17 @@
 import { Article } from '../models/Article.js';
 import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheService.js';
 import { publicArticleFilter } from '../utils/publicArticleFilter.js';
+import { normalizeHeroImage } from '../utils/heroImageUtils.js';
+
+function enrichArticleHero(article) {
+  if (!article) return article;
+  return { ...article, heroImage: normalizeHeroImage(article.heroImage, article.category) };
+}
+
+function enrichList(payload) {
+  if (!payload?.items) return payload;
+  return { ...payload, items: payload.items.map(enrichArticleHero) };
+}
 
 const listProjection = {
   title: 1,
@@ -32,7 +43,7 @@ export async function listArticles(req, res, next) {
 
     const cacheKey = cacheKeys().articleList({ page, limit, category, tag, sort });
     const cached = await cacheGet(cacheKey);
-    if (cached) return res.json(cached);
+    if (cached) return res.json(enrichList(cached));
 
     const filter = { ...publicArticleFilter };
     if (category && category !== 'All') {
@@ -51,7 +62,7 @@ export async function listArticles(req, res, next) {
       Article.countDocuments(filter),
     ]);
 
-    const payload = { items, page, limit, total, pages: Math.ceil(total / limit) };
+    const payload = enrichList({ items, page, limit, total, pages: Math.ceil(total / limit) });
     await cacheSet(cacheKey, payload, 300);
     res.json(payload);
   } catch (e) {
@@ -80,7 +91,7 @@ export async function getBreaking(req, res, next) {
   try {
     const ck = cacheKeys().breaking;
     const cached = await cacheGet(ck);
-    if (cached) return res.json(cached);
+    if (cached) return res.json(cached.map(enrichArticleHero));
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const items = await Article.find({
@@ -92,8 +103,9 @@ export async function getBreaking(req, res, next) {
       .limit(20)
       .lean();
 
-    await cacheSet(ck, items, 120);
-    res.json(items);
+    const enriched = items.map(enrichArticleHero);
+    await cacheSet(ck, enriched, 120);
+    res.json(enriched);
   } catch (e) {
     next(e);
   }
@@ -115,7 +127,7 @@ export async function getTrending(req, res, next) {
       .lean();
 
     await cacheSet(ck, items, 600);
-    res.json(items);
+    res.json(items.map(enrichArticleHero));
   } catch (e) {
     next(e);
   }
@@ -130,7 +142,7 @@ export async function getFeatured(req, res, next) {
       .sort({ publishedAt: -1 })
       .limit(5)
       .lean();
-    res.json(items);
+    res.json(items.map(enrichArticleHero));
   } catch (e) {
     next(e);
   }
@@ -150,7 +162,10 @@ export async function getArticleBySlug(req, res, next) {
         }
       });
       res.set('Cache-Control', 'public, max-age=60');
-      return res.json(cached);
+      return res.json({
+        article: enrichArticleHero(cached.article),
+        related: (cached.related || []).map(enrichArticleHero),
+      });
     }
 
     const article = await Article.findOne({ slug, ...publicArticleFilter }).lean();
@@ -176,7 +191,10 @@ export async function getArticleBySlug(req, res, next) {
       .limit(4)
       .lean();
 
-    const payload = { article, related };
+    const payload = {
+      article: enrichArticleHero(article),
+      related: related.map(enrichArticleHero),
+    };
     await cacheSet(ck, payload, 120);
     res.set('Cache-Control', 'public, max-age=60');
     res.json(payload);

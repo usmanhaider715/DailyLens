@@ -7,6 +7,7 @@ import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
 import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
+import { HeroImage } from '../common/HeroImage.jsx';
 
 export function ArticleManager() {
   const [items, setItems] = useState([]);
@@ -214,11 +215,11 @@ export function ArticleManager() {
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <img
-                    src={a.heroImage?.url || '/favicon.svg'}
-                    alt=""
+                  <HeroImage
+                    url={a.heroImage?.url}
+                    alt={a.title}
+                    category={a.category}
                     className="h-12 w-16 rounded object-cover"
-                    loading="lazy"
                   />
                 </td>
                 <td className="max-w-xs px-3 py-2 font-medium text-gray-900 dark:text-gray-100">

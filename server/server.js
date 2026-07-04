@@ -2,7 +2,6 @@ import 'dotenv/config';
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { Server } from 'socket.io';
@@ -10,8 +9,10 @@ import { connectDB } from './config/db.js';
 import { configureCloudinary } from './config/cloudinary.js';
 import { getRedis } from './config/redis.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
+import { applySecurity, getAllowedOrigins } from './middleware/security.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setSocketIO, emitTickerUpdate, broadcastLiveCount } from './services/socketService.js';
+import { validateProductionEnv } from './utils/envValidate.js';
 import { Article } from './models/Article.js';
 import { publicArticleFilter } from './utils/publicArticleFilter.js';
 import { logger } from './utils/logger.js';
@@ -28,6 +29,7 @@ import adsRoutes from './routes/ads.js';
 import searchRoutes from './routes/search.js';
 import liveRoutes from './routes/live.js';
 import siteRoutes from './routes/site.js';
+import imagesRoutes from './routes/images.js';
 import {
   buildSitemapXml,
   buildRobotsTxt,
@@ -37,25 +39,34 @@ import {
 
 const app = express();
 const server = http.createServer(app);
+
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: getAllowedOrigins(),
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
 setSocketIO(io);
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+applySecurity(app);
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: getAllowedOrigins(),
     credentials: true,
   })
 );
 app.use(compression());
-app.use(express.json({ limit: '2mb' }));
-app.use(morgan('dev'));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '256kb' }));
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 app.use(apiLimiter);
 
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -103,6 +114,7 @@ app.use('/api/ads', adsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/site', siteRoutes);
+app.use('/api/images', imagesRoutes);
 
 app.use(errorHandler);
 
@@ -130,6 +142,7 @@ const PORT = process.env.PORT || 5000;
 
 async function start() {
   try {
+    validateProductionEnv();
     configureCloudinary();
     await connectDB(process.env.MONGODB_URI);
     getRedis();
@@ -143,7 +156,7 @@ async function start() {
     setInterval(pushTicker, 5 * 60 * 1000);
     startLiveScoresPoller();
     await updateTrendingCache();
-    server.listen(PORT, () => logger.info(`Server listening on ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => logger.info(`Server listening on ${PORT}`));
   } catch (e) {
     logger.error(e);
     process.exit(1);

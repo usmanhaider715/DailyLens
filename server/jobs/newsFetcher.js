@@ -4,12 +4,14 @@ import { Category } from '../models/Category.js';
 import { getSiteSettings } from '../models/SiteSettings.js';
 import { fetchAllNews, extractArticleFromUrl } from '../services/newsService.js';
 import { processArticle, processBatch } from '../services/aiService.js';
+import { generateSeoArticle } from '../services/groqService.js';
 import { generateAndUploadImage } from '../services/imageService.js';
 import { slugify } from '../utils/slugify.js';
 import { emitBreakingNews } from '../services/socketService.js';
 import { logger } from '../utils/logger.js';
 import { updateTrendingCache } from './trendingUpdater.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
+import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 
 async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -65,11 +67,10 @@ async function saveFailed(raw, errMsg) {
     body: raw.content || raw.description || raw.title,
     category: raw.suggestedCategory || 'World',
     tags: [],
-    heroImage: {
-      url: raw.imageUrl || '',
-      source: raw.imageUrl ? 'original' : 'placeholder',
-      alt: raw.title,
-    },
+    heroImage: normalizeHeroImage(
+      raw.imageUrl ? { url: raw.imageUrl, alt: raw.title, source: 'original' } : null,
+      raw.suggestedCategory || 'World'
+    ),
     source: { name: raw.sourceName, url: raw.sourceUrl },
     isPublished: false,
     publishedAt: raw.publishedAt || new Date(),
@@ -110,10 +111,17 @@ async function persistProcessed(raw, parsed) {
   return doc;
 }
 
+async function rewriteArticle(raw) {
+  if (process.env.GROQ_API_KEY) {
+    return generateSeoArticle(raw);
+  }
+  return processArticle(raw);
+}
+
 export async function processRawArticle(raw) {
   let parsed;
   try {
-    parsed = await processArticle(raw);
+    parsed = await rewriteArticle(raw);
   } catch (err) {
     return saveFailed(raw, err.message);
   }
@@ -128,7 +136,7 @@ export async function runPipelineForArticles(rawArticles) {
 
   for (let i = 0; i < rawArticles.length; i += batchSize) {
     const chunk = rawArticles.slice(i, i + batchSize);
-    const results = await processBatch(chunk, 3);
+    const results = await processBatch(chunk, 3, rewriteArticle);
     for (const r of results) {
       processed += 1;
       if (!r) continue;

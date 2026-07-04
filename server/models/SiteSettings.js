@@ -23,17 +23,25 @@ const siteSettingsSchema = new mongoose.Schema(
       enum: ['featured', 'live_match', 'weather'],
       default: 'featured',
     },
+    /** Deprecated coarse preset — superseded by country/state/city fields below */
     homepageWeatherRegion: {
       type: String,
-      enum: ['usa', 'uk'],
       default: 'usa',
     },
+    /** When true, homepage asks browser geolocation first for forecasts */
+    homepageWeatherUseVisitorLocation: { type: Boolean, default: true },
+    homepageWeatherCountry: { type: String, enum: ['us', 'uk'], default: 'us' },
+    homepageWeatherState: { type: String, default: 'NY' },
+    homepageWeatherCityId: { type: String, default: '' },
     homepageLiveMatchId: { type: String, default: null },
     homepageLiveMatchLeague: {
       type: String,
       enum: ['cricket', 'soccer', 'nfl', 'nba', 'mlb'],
       default: 'cricket',
     },
+    /** Live crypto price chart on homepage hero column */
+    homepageShowCryptoChart: { type: Boolean, default: true },
+    homepageCryptoCoinId: { type: String, default: 'bitcoin' },
   },
   { timestamps: true }
 );

@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
+
+const MAX_BATCH = 15;
 
 const CATEGORY_COLORS = {
   World: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
@@ -41,29 +44,86 @@ function CategoryBadge({ category }) {
   );
 }
 
+function draftToPayload(draft, item) {
+  return {
+    title: draft.title,
+    summary: draft.summary,
+    body: draft.body,
+    category: draft.category,
+    tags: draft.tags || [],
+    author: 'The Daily Lens Desk',
+    heroImage: draft.heroImageUrl
+      ? {
+          url: draft.heroImageUrl,
+          alt: draft.heroImageAlt || draft.title,
+          credit: draft.heroImageCredit || item.sourceName,
+          creditUrl: draft.heroImageCreditUrl || item.url,
+          source: draft.heroImageSource || 'original',
+        }
+      : undefined,
+    isPublished: true,
+    seoScore: draft.seoScore ?? 7,
+    readTime: draft.readTime,
+    originalUrl: item.url,
+    originalTitle: item.title,
+    source: { name: item.sourceName || 'News source', url: item.sourceUrl || item.url },
+    publishedAt: item.publishedAt,
+  };
+}
+
+async function generateDraftFromItem(item) {
+  const { data: draft } = await api.post('/admin/ai/generate-article', {
+    title: item.title,
+    description: item.description,
+    content: item.description,
+    url: item.url,
+    imageUrl: item.imageUrl,
+    sourceName: item.sourceName,
+    sourceUrl: item.sourceUrl || item.url,
+    publishedAt: item.publishedAt,
+    suggestedCategory: item.suggestedCategory,
+  });
+  return draft;
+}
+
 export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
+  const router = useRouter();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [totalInCategory, setTotalInCategory] = useState(0);
   const [loadingFeed, setLoadingFeed] = useState(false);
-  const [generatingId, setGeneratingId] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState('');
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [sources, setSources] = useState({ rss: true, newsApi: false, gnews: false });
+
+  const selectableItems = useMemo(
+    () => items.filter((item) => !item.alreadyImported),
+    [items]
+  );
 
   const loadFeed = useCallback(async (category) => {
     setLoadingFeed(true);
     try {
-      const params = { limit: 100 };
+      const params = { limit: 120 };
       if (category && category !== 'All') params.category = category;
       const { data } = await api.get('/admin/ai/news-feed', { params });
       setItems(data.items || []);
       setCategories(data.categories || []);
       setTotalInCategory(data.totalInCategory ?? data.items?.length ?? 0);
+      if (data.sources) setSources(data.sources);
+      setSelected(new Set());
       if (!data.items?.length) {
+        const extra =
+          data.sources?.newsApi || data.sources?.gnews
+            ? ''
+            : ' RSS + Google News are active; optional NEWSAPI_KEY / GNEWS_KEY add more volume.';
         toast(
           category === 'All'
-            ? 'No headlines returned. Add NEWSAPI_KEY or GNEWS_KEY in server .env.'
-            : `No stories in ${category} right now.`
+            ? `No headlines returned right now.${extra}`
+            : `No stories in ${category} right now — try All or refresh.`
         );
       }
     } catch (err) {
@@ -78,22 +138,31 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
     loadFeed(activeCategory);
   }, [open, activeCategory, loadFeed]);
 
-  const addArticle = async (item) => {
-    setGeneratingId(item.url);
+  const toggleSelect = (url) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelected(new Set(selectableItems.slice(0, MAX_BATCH).map((i) => i.url)));
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const selectedItems = useMemo(
+    () => items.filter((item) => selected.has(item.url)),
+    [items, selected]
+  );
+
+  const addOneToEditor = async (item) => {
+    setBusy(true);
     setStatusText('Writing article and finding source image…');
     try {
-      const { data: draft } = await api.post('/admin/ai/generate-article', {
-        title: item.title,
-        description: item.description,
-        content: item.description,
-        url: item.url,
-        imageUrl: item.imageUrl,
-        sourceName: item.sourceName,
-        sourceUrl: item.sourceUrl || item.url,
-        publishedAt: item.publishedAt,
-        suggestedCategory: item.suggestedCategory,
-      });
-
+      const draft = await generateDraftFromItem(item);
       onApplyDraft({
         title: draft.title,
         summary: draft.summary,
@@ -108,21 +177,88 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
         isBreaking: draft.isBreaking,
         seoScore: draft.seoScore ?? 7,
       });
-
       toast.success('Article drafted — review and publish');
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Could not generate article');
     } finally {
-      setGeneratingId(null);
+      setBusy(false);
       setStatusText('');
     }
   };
 
+  const publishSelected = async () => {
+    const toProcess = selectedItems.filter((item) => !item.alreadyImported);
+    if (!toProcess.length) {
+      toast.error('Select at least one story that is not already imported');
+      return;
+    }
+    if (toProcess.length > MAX_BATCH) {
+      toast.error(`You can publish up to ${MAX_BATCH} articles at a time`);
+      return;
+    }
+
+    if (toProcess.length === 1) {
+      return addOneToEditor(toProcess[0]);
+    }
+
+    setBusy(true);
+    setProgress({ done: 0, total: toProcess.length });
+    let published = 0;
+    let failed = 0;
+
+    for (let i = 0; i < toProcess.length; i++) {
+      const item = toProcess[i];
+      setStatusText(`Generating article ${i + 1} of ${toProcess.length}…`);
+      setProgress({ done: i, total: toProcess.length });
+      try {
+        const draft = await generateDraftFromItem(item);
+        setStatusText(`Publishing article ${i + 1} of ${toProcess.length}…`);
+        await api.post('/admin/articles', draftToPayload(draft, item));
+        published += 1;
+        setItems((prev) =>
+          prev.map((row) => (row.url === item.url ? { ...row, alreadyImported: true } : row))
+        );
+      } catch (err) {
+        failed += 1;
+        const msg = err?.response?.data?.message || item.title?.slice(0, 40) || 'Unknown error';
+        toast.error(`Failed: ${msg}`);
+        if (err?.response?.status === 429) {
+          toast.error('Groq rate limit — wait a moment before retrying remaining items');
+          break;
+        }
+      }
+      setProgress({ done: i + 1, total: toProcess.length });
+    }
+
+    setBusy(false);
+    setStatusText('');
+    setSelected(new Set());
+
+    if (published > 0) {
+      toast.success(`Published ${published} article${published === 1 ? '' : 's'}`);
+      onClose();
+      router.push('/admin/articles');
+    }
+    if (failed > 0 && published === 0) {
+      toast.error('No articles were published');
+    }
+  };
+
+  const handleAddSelected = () => {
+    if (selectedItems.length === 1) {
+      return addOneToEditor(selectedItems[0]);
+    }
+    return publishSelected();
+  };
+
   if (!open) return null;
 
-  const busy = !!generatingId;
   const allCount = categories.reduce((sum, c) => sum + c.count, 0);
+  const selectedCount = selected.size;
+  const allSelectableSelected =
+    selectableItems.length > 0 &&
+    selectableItems.slice(0, MAX_BATCH).every((i) => selected.has(i.url));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
@@ -140,7 +276,15 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
               Latest news from all sources
             </h2>
             <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-              Categories from NewsAPI, GNews, and RSS feeds · Groq writes the article
+              Select multiple stories · Groq writes SEO headlines · bulk publish or add one to editor
+            </p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              Active: RSS
+              {sources.newsApi ? ', NewsAPI' : ''}
+              {sources.gnews ? ', GNews' : ''}
+              {!sources.newsApi && !sources.gnews
+                ? ' · add NEWSAPI_KEY / GNEWS_KEY in server .env for extra sources'
+                : ''}
             </p>
           </div>
           <button
@@ -172,12 +316,15 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
               <button
                 key={c.name}
                 type="button"
-                disabled={busy || loadingFeed}
+                disabled={busy || loadingFeed || c.count === 0}
                 onClick={() => setActiveCategory(c.name)}
+                title={c.count === 0 ? 'No stories from feeds right now' : undefined}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   activeCategory === c.name
                     ? 'bg-primary-700 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+                    : c.count === 0
+                      ? 'cursor-not-allowed bg-gray-50 text-gray-400 dark:bg-gray-900 dark:text-gray-600'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
                 {c.name} ({c.count})
@@ -191,11 +338,39 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
           ) : null}
         </div>
 
+        {!loadingFeed && selectableItems.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-2 text-xs dark:border-gray-800">
+            <label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={allSelectableSelected}
+                disabled={busy}
+                onChange={() => (allSelectableSelected ? clearSelection() : selectAllVisible())}
+                className="rounded border-gray-300"
+              />
+              Select all ({Math.min(selectableItems.length, MAX_BATCH)})
+            </label>
+            {selectedCount > 0 ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={clearSelection}
+                className="text-primary-700 hover:underline dark:text-primary-300"
+              >
+                Clear selection
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {busy ? (
           <div className="border-b border-primary-200 bg-primary-50 px-5 py-3 text-sm text-primary-900 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-100">
             <div className="flex items-center gap-3">
               <Spinner />
-              <span>{statusText}</span>
+              <span>
+                {statusText}
+                {progress.total > 1 ? ` (${progress.done}/${progress.total})` : ''}
+              </span>
             </div>
           </div>
         ) : null}
@@ -210,13 +385,26 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
           ) : (
             <ul className="space-y-3">
               {items.map((item) => {
-                const isGen = generatingId === item.url;
+                const isSelected = selected.has(item.url);
+                const canSelect = !item.alreadyImported;
                 return (
                   <li
                     key={item.url}
-                    className="rounded-xl border border-gray-100 p-4 dark:border-gray-800"
+                    className={`rounded-xl border p-4 transition ${
+                      isSelected
+                        ? 'border-primary-400 bg-primary-50/50 dark:border-primary-600 dark:bg-primary-950/20'
+                        : 'border-gray-100 dark:border-gray-800'
+                    }`}
                   >
                     <div className="flex gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={busy || !canSelect}
+                        onChange={() => toggleSelect(item.url)}
+                        title={canSelect ? 'Select for bulk add' : 'Already imported'}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 disabled:opacity-40"
+                      />
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -250,11 +438,11 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
                     <div className="mt-3 flex justify-end">
                       <button
                         type="button"
-                        disabled={busy}
-                        onClick={() => addArticle(item)}
-                        className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+                        disabled={busy || item.alreadyImported}
+                        onClick={() => addOneToEditor(item)}
+                        className="rounded-lg border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-50 disabled:opacity-50 dark:border-primary-500 dark:text-primary-100 dark:hover:bg-primary-950/50"
                       >
-                        {isGen ? 'Generating…' : 'Add this article'}
+                        Add to editor
                       </button>
                     </div>
                   </li>
@@ -263,6 +451,37 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
             </ul>
           )}
         </div>
+
+        {selectedCount > 0 ? (
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-700 dark:bg-gray-950">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              {selectedCount} selected
+              {selectedCount > 1 ? ` (max ${MAX_BATCH})` : ''}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={clearSelection}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleAddSelected}
+                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+              >
+                {busy
+                  ? 'Working…'
+                  : selectedCount === 1
+                    ? 'Add to editor'
+                    : `Publish ${selectedCount} articles`}
+              </button>
+            </div>
+          </footer>
+        ) : null}
       </div>
     </div>
   );

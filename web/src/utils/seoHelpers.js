@@ -11,7 +11,7 @@ export function buildNewsArticleJsonLd({ article, canonical }) {
     '@type': 'NewsArticle',
     headline: article.title,
     description: summary,
-    image: article.heroImage?.url ? [article.heroImage.url] : [absoluteUrl('/favicon.svg')],
+    image: article.heroImage?.url ? [article.heroImage.url] : [absoluteUrl('/logo.png')],
     datePublished: new Date(article.publishedAt).toISOString(),
     dateModified: new Date(article.updatedAt || article.publishedAt).toISOString(),
     author: {
@@ -24,7 +24,7 @@ export function buildNewsArticleJsonLd({ article, canonical }) {
       url: siteOrigin,
       logo: {
         '@type': 'ImageObject',
-        url: absoluteUrl('/favicon.svg'),
+        url: absoluteUrl('/logo.png'),
       },
     },
     articleSection: article.category,
@@ -75,7 +75,7 @@ export function buildOrganizationJsonLd() {
     '@type': 'NewsMediaOrganization',
     name: SITE_NAME,
     url: absoluteUrl('/'),
-    logo: absoluteUrl('/favicon.svg'),
+    logo: absoluteUrl('/logo.png'),
     sameAs: [],
   };
 }

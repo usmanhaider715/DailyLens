@@ -12,7 +12,7 @@ export const metadata = {
     template: '%s | The Daily Lens',
   },
   description:
-    'Breaking news, analysis, and forecasts — world-class journalism from The Daily Lens.',
+    'Breaking news, analysis, and forecasts — clear reporting from The Daily Lens.',
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -21,6 +21,14 @@ export const metadata = {
   robots: { index: true, follow: true },
   alternates: {
     types: { 'application/rss+xml': [{ url: '/feed.xml', title: 'The Daily Lens RSS' }] },
+  },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
+    ],
+    apple: [{ url: '/apple-icon.png', type: 'image/png' }],
+    shortcut: ['/favicon.ico'],
   },
 };
 
@@ -31,7 +39,7 @@ const orgJsonLd = {
   '@type': 'NewsMediaOrganization',
   name: 'The Daily Lens',
   url: siteUrl,
-  logo: `${siteUrl}/favicon.svg`,
+  logo: `${siteUrl}/logo.png`,
   sameAs: [],
 };
 
@@ -41,6 +49,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script
           type="application/ld+json"

@@ -1,7 +1,6 @@
 'use client';
 
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
-import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
 import { ShareButtons } from './ShareButtons.jsx';
 import { RelatedArticles } from './RelatedArticles.jsx';
@@ -10,8 +9,10 @@ import { ReadingProgress } from './ReadingProgress.jsx';
 import { ForecastBlock } from './ForecastBlock.jsx';
 import { ForecastBadge } from '../common/ForecastBadge.jsx';
 import { ArticleRichContent } from './ArticleRichContent.jsx';
+import { HeroImage } from '../common/HeroImage.jsx';
 import { splitArticleBody } from '../../utils/articleBodyFormat.js';
 import { prepareArticleHtml } from '../../utils/stripHtml.js';
+import { SourceNewsBriefButton } from './SourceNewsBriefButton.jsx';
 
 function splitParagraphs(body) {
   if (!body) return [];
@@ -36,25 +37,23 @@ export function ArticleBody({ article, related }) {
     <>
       <ReadingProgress />
       <article className="mx-auto max-w-3xl px-4 pb-16 pt-8">
-        {article.heroImage?.url && (
-          <figure>
-            <img
-              src={article.heroImage.url}
-              alt={article.heroImage.alt || article.title}
-              className="w-full rounded-2xl object-cover"
-              width={1200}
-              height={675}
-              fetchPriority="high"
-              loading="eager"
-              decoding="async"
-            />
-            {article.heroImage.alt && !htmlArticle && (
-              <figcaption className="mt-2 text-center text-xs text-gray-500">
-                {article.heroImage.alt}
-              </figcaption>
-            )}
-          </figure>
-        )}
+        <figure>
+          <HeroImage
+            url={article.heroImage?.url}
+            alt={article.heroImage?.alt || article.title}
+            category={article.category}
+            className="w-full rounded-2xl object-cover"
+            width={1200}
+            height={675}
+            fetchPriority="high"
+            loading="eager"
+          />
+          {article.heroImage?.alt && !htmlArticle && (
+            <figcaption className="mt-2 text-center text-xs text-gray-500">
+              {article.heroImage.alt}
+            </figcaption>
+          )}
+        </figure>
 
         <h1 className="mt-8 font-display text-4xl font-bold leading-tight text-gray-900 dark:text-white md:text-[40px]">
           {article.title}
@@ -62,7 +61,6 @@ export function ArticleBody({ article, related }) {
 
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
           <CategoryBadge category={article.category} />
-          <SeoScoreBadge score={article.seoScore} />
           {article.forecast?.enabled && <ForecastBadge confidence={article.forecast.confidence} />}
           <span>{article.author}</span>
           <span>·</span>
@@ -74,6 +72,8 @@ export function ArticleBody({ article, related }) {
         <div className="mt-4">
           <ShareButtons url={url} title={article.title} />
         </div>
+
+        <SourceNewsBriefButton article={article} />
 
         <ForecastBlock article={article} />
 

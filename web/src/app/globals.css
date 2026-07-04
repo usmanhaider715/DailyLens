@@ -19,6 +19,27 @@
   --color-breaking-hover: #b91c1c;
   --font-display: "Playfair Display", serif;
   --font-body: Inter, sans-serif;
+  --animate-scroll-left: scroll-left 35s linear infinite;
+  --animate-pulse-flash: pulse-flash 1.2s ease-in-out infinite;
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes pulse-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 html,
@@ -51,6 +72,30 @@ img {
 .article-content-wrap .article-html-content a,
 .article-content-wrap .article-html-content em a {
   @apply italic text-primary-700 underline decoration-primary-300 underline-offset-2 hover:text-primary-800 dark:text-primary-400 dark:decoration-primary-600;
+}
+
+.article-content-wrap .article-faq {
+  @apply mt-14 border-t border-gray-200 pt-10 dark:border-gray-800;
+}
+
+.article-content-wrap .article-faq h2 {
+  @apply mb-5 font-display text-xl font-bold text-gray-900 dark:text-white;
+}
+
+.article-content-wrap .article-faq-list {
+  @apply m-0 space-y-4 p-0;
+}
+
+.article-content-wrap .article-faq-item {
+  @apply text-[17px] leading-relaxed text-gray-700 dark:text-gray-300;
+}
+
+.article-content-wrap .article-faq-q {
+  @apply mb-1 text-gray-900 dark:text-white;
+}
+
+.article-content-wrap .article-faq-a {
+  @apply m-0 text-gray-600 dark:text-gray-400;
 }
 
 .article-content-wrap .article-followup {
@@ -89,4 +134,13 @@ img {
 
 .article-content-wrap .article-legal-footer a {
   @apply underline;
+}
+
+/* Breaking news ticker */
+.animate-scroll-left {
+  animation: scroll-left 35s linear infinite;
+}
+
+.animate-pulse-flash {
+  animation: pulse-flash 1.2s ease-in-out infinite;
 }

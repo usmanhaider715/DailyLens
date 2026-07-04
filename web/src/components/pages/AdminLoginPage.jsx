@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image';
 
 export function AdminLoginPage() {
   const { login } = useAuth();
@@ -31,9 +32,10 @@ export function AdminLoginPage() {
         onSubmit={submit}
         className="w-full max-w-md space-y-4 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900"
       >
-        <h1 className="font-display text-3xl font-bold text-primary-950 dark:text-white">
-          The Daily Lens — Admin
-        </h1>
+        <div className="flex flex-col items-center gap-3">
+          <Image src="/logo.png" alt="The Daily Lens" width={56} height={56} className="h-14 w-14 object-contain" />
+          <h1 className="font-display text-3xl font-bold text-primary-950 dark:text-white">Admin</h1>
+        </div>
         <input
           type="email"
           required

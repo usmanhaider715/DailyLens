@@ -1,15 +1,5 @@
 import axios from 'axios';
-
-function isUsableImageUrl(url) {
-  if (!url || typeof url !== 'string') return false;
-  try {
-    const u = new URL(url);
-    if (!['http:', 'https:'].includes(u.protocol)) return false;
-    return !u.hostname.includes('google.com/logos') && !u.pathname.endsWith('.svg');
-  } catch {
-    return false;
-  }
-}
+import { isUsableImageUrl, isRejectedHeroImageUrl, unsplashHeroUrl } from '../utils/heroImageUtils.js';
 
 async function fetchOgImage(pageUrl) {
   try {
@@ -27,7 +17,7 @@ async function fetchOgImage(pageUrl) {
     ];
     for (const re of patterns) {
       const m = str.match(re);
-      if (m?.[1] && isUsableImageUrl(m[1])) return m[1].trim();
+      if (m?.[1] && isUsableImageUrl(m[1]) && !isRejectedHeroImageUrl(m[1])) return m[1].trim();
     }
   } catch {
     /* skip */
@@ -35,48 +25,133 @@ async function fetchOgImage(pageUrl) {
   return null;
 }
 
-async function searchGoogleImage(query) {
+async function searchGoogleImageList(query, { freeUseOnly = true, limit = 6 } = {}) {
   const apiKey = process.env.GOOGLE_CSE_API_KEY;
   const cx = process.env.GOOGLE_CSE_ID || process.env.GOOGLE_CSE_CX;
-  if (!apiKey || !cx) return null;
+  if (!apiKey || !cx) return [];
 
   try {
+    const params = {
+      key: apiKey,
+      cx,
+      q: `${query} -logo -icon -avatar -screenshot`,
+      searchType: 'image',
+      num: Math.min(limit, 10),
+      safe: 'active',
+      imgSize: 'large',
+      imgType: 'photo',
+    };
+    if (freeUseOnly) {
+      params.rights =
+        'cc_publicdomain|cc_attribute|cc_sharealike|cc_noncommercial|cc_nonderived';
+    }
+
     const { data } = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params,
+      timeout: 12000,
+    });
+
+    const out = [];
+    for (const item of data.items || []) {
+      const link = item.link || item.image?.thumbnailLink;
+      const display = String(item.displayLink || '').toLowerCase();
+      if (display.includes('google.com') || display.includes('gstatic.com')) continue;
+      if (!isUsableImageUrl(link) || isRejectedHeroImageUrl(link)) continue;
+      out.push({
+        url: link,
+        credit: item.displayLink || 'Google Images (CC / free use)',
+        creditUrl: item.image?.contextLink || item.link,
+        viaGoogle: true,
+        license: freeUseOnly ? 'creative_commons' : null,
+        source: 'google_images',
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function searchGoogleImage(query, { freeUseOnly = true } = {}) {
+  const list = await searchGoogleImageList(query, { freeUseOnly, limit: 1 });
+  return list[0] || null;
+}
+
+async function searchWikimediaCommonsList(query, limit = 6) {
+  try {
+    const { data } = await axios.get('https://commons.wikimedia.org/w/api.php', {
       params: {
-        key: apiKey,
-        cx,
-        q: query,
-        searchType: 'image',
-        num: 5,
-        safe: 'active',
-        imgSize: 'large',
+        action: 'query',
+        format: 'json',
+        generator: 'search',
+        gsrsearch: `${query} news`,
+        gsrlimit: limit,
+        prop: 'imageinfo',
+        iiprop: 'url|extmetadata',
+        iiurlwidth: 1200,
+        origin: '*',
       },
       timeout: 12000,
     });
 
-    for (const item of data.items || []) {
-      const link = item.link || item.image?.thumbnailLink;
-      if (isUsableImageUrl(link)) {
-        return {
-          url: link,
-          credit: item.displayLink || item.image?.contextLink || 'Google Images',
-          creditUrl: item.image?.contextLink || item.link,
-          viaGoogle: true,
-        };
-      }
+    const pages = data?.query?.pages;
+    if (!pages) return [];
+
+    const out = [];
+    for (const page of Object.values(pages)) {
+      const info = page.imageinfo?.[0];
+      const imageUrl = info?.thumburl || info?.url;
+      if (!isUsableImageUrl(imageUrl)) continue;
+
+      const license =
+        info?.extmetadata?.LicenseShortName?.value ||
+        info?.extmetadata?.UsageTerms?.value ||
+        'Wikimedia Commons';
+      const artist = info?.extmetadata?.Artist?.value?.replace(/<[^>]+>/g, '') || 'Wikimedia Commons';
+
+      out.push({
+        url: imageUrl,
+        credit: artist,
+        creditUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title || '')}`,
+        viaGoogle: false,
+        license: stripHtml(license),
+        source: 'wikimedia',
+      });
     }
+    return out;
   } catch {
-    /* skip */
+    return [];
   }
-  return null;
+}
+
+/** Wikimedia Commons — free-to-use images for news heroes. */
+async function searchWikimediaCommons(query) {
+  const list = await searchWikimediaCommonsList(query, 1);
+  return list[0] || null;
+}
+
+function stripHtml(s) {
+  return String(s || '').replace(/<[^>]+>/g, '').trim();
 }
 
 /**
  * Resolve a hero image from the story source, page metadata, or Google Image Search.
  */
-export async function resolveHeroImage({ title, imageUrl, url, sourceName, sourceUrl }) {
+export async function resolveHeroImage({
+  title,
+  imageUrl,
+  url,
+  sourceName,
+  sourceUrl,
+  category,
+  primaryKeyword,
+}) {
   const publisher = sourceName || 'Original publisher';
   const storyLink = sourceUrl || url || '';
+  const searchQuery = [title, primaryKeyword, category, 'news photo']
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 120);
 
   if (isUsableImageUrl(imageUrl)) {
     return {
@@ -89,7 +164,7 @@ export async function resolveHeroImage({ title, imageUrl, url, sourceName, sourc
     };
   }
 
-  const og = await fetchOgImage(url);
+  const og = url ? await fetchOgImage(url) : null;
   if (og) {
     return {
       url: og,
@@ -101,8 +176,21 @@ export async function resolveHeroImage({ title, imageUrl, url, sourceName, sourc
     };
   }
 
-  const google = await searchGoogleImage(`${title} ${publisher} news`);
-  if (google) {
+  const wiki = await searchWikimediaCommons(searchQuery);
+  if (wiki) {
+    return {
+      url: wiki.url,
+      alt: title || 'News image',
+      credit: wiki.credit,
+      creditUrl: wiki.creditUrl,
+      source: 'original',
+      viaGoogle: false,
+      license: wiki.license,
+    };
+  }
+
+  const google = await searchGoogleImage(searchQuery, { freeUseOnly: true });
+  if (google && !isRejectedHeroImageUrl(google.url)) {
     return {
       url: google.url,
       alt: title || 'News image',
@@ -110,10 +198,18 @@ export async function resolveHeroImage({ title, imageUrl, url, sourceName, sourc
       creditUrl: google.creditUrl || storyLink,
       source: 'original',
       viaGoogle: true,
+      license: google.license,
     };
   }
 
-  return null;
+  return {
+    url: unsplashHeroUrl(category),
+    alt: title || 'News image',
+    credit: 'Unsplash (free to use)',
+    creditUrl: 'https://unsplash.com/license',
+    source: 'placeholder',
+    viaGoogle: false,
+  };
 }
 
 export function appendImageCreditToBody(body, hero) {
@@ -131,6 +227,82 @@ export function appendImageCreditToBody(body, hero) {
 ${creditLine}`;
 
   return `${(body || '').trim()}${block}`;
+}
+
+const UNSPLASH_BY_CATEGORY = {
+  Technology: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=630&fit=crop&q=80',
+  Business: 'https://images.unsplash.com/photo-1611974789855-9c8a298e8f05?w=1200&h=630&fit=crop&q=80',
+  Sports: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1200&h=630&fit=crop&q=80',
+  Health: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&h=630&fit=crop&q=80',
+  Politics: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&h=630&fit=crop&q=80',
+  Crypto: 'https://images.unsplash.com/photo-1621761191319-c9fb62084057?w=1200&h=630&fit=crop&q=80',
+  Weather: 'https://images.unsplash.com/photo-1504608524841-42fe6f008b4b?w=1200&h=630&fit=crop&q=80',
+  Science: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&h=630&fit=crop&q=80',
+  Entertainment: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&h=630&fit=crop&q=80',
+};
+
+function unsplashAlternatives(category) {
+  const urls = [
+    UNSPLASH_BY_CATEGORY[category],
+    unsplashHeroUrl(category),
+    'https://images.unsplash.com/photo-1495020689066-41b99a22d0f8?w=1200&h=630&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=630&fit=crop&q=80',
+  ].filter(Boolean);
+  return urls.map((url) => ({
+    url,
+    credit: 'Unsplash (free to use)',
+    creditUrl: 'https://unsplash.com/license',
+    viaGoogle: false,
+    license: 'Unsplash License',
+    source: 'unsplash',
+  }));
+}
+
+/** Return multiple free-use hero options for admin picker. */
+export async function searchHeroImageCandidates({
+  title = '',
+  category = 'World',
+  excludeUrl = '',
+  query = '',
+  limit = 8,
+} = {}) {
+  const searchQuery = (query || [title, category, 'news photo'].filter(Boolean).join(' '))
+    .trim()
+    .slice(0, 120);
+  const seen = new Set();
+  if (excludeUrl) seen.add(excludeUrl.trim());
+  const results = [];
+
+  const push = (item) => {
+    if (!item?.url || seen.has(item.url)) return;
+    seen.add(item.url);
+    results.push({
+      url: item.url,
+      credit: item.credit || '',
+      creditUrl: item.creditUrl || '',
+      alt: title || 'News image',
+      viaGoogle: !!item.viaGoogle,
+      license: item.license || null,
+      source: item.source || 'unknown',
+    });
+  };
+
+  for (const item of await searchWikimediaCommonsList(searchQuery, 6)) {
+    push(item);
+    if (results.length >= limit) return results;
+  }
+
+  for (const item of await searchGoogleImageList(searchQuery, { freeUseOnly: true, limit: 6 })) {
+    push(item);
+    if (results.length >= limit) return results;
+  }
+
+  for (const item of unsplashAlternatives(category)) {
+    push(item);
+    if (results.length >= limit) return results;
+  }
+
+  return results.slice(0, limit);
 }
 
 export function buildHeroCaption(hero) {

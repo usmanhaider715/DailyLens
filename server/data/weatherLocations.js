@@ -182,6 +182,42 @@ export function findNearestLocation(lat, lon) {
   return best;
 }
 
+/** All locations for SEO sitemap and landing pages. */
+export function getAllWeatherSeoLocations() {
+  const us = US_STATES.map((s) => ({
+    country: 'us',
+    slug: s.code.toLowerCase(),
+    state: s.code,
+    cityId: null,
+    name: `${s.capital}, ${s.name}`,
+    label: `${s.name} (${s.capital})`,
+  }));
+  const uk = UK_REGIONS.flatMap((r) =>
+    r.cities.map((c) => ({
+      country: 'uk',
+      slug: `${r.id}-${c.id}`,
+      state: null,
+      cityId: `${r.id}-${c.id}`,
+      name: `${c.name}, ${r.name}`,
+      label: `${c.name}, ${r.name}`,
+    }))
+  );
+  return [...us, ...uk];
+}
+
+export function resolveLocationBySlug(country, slug) {
+  const c = (country || '').toLowerCase();
+  const s = (slug || '').toLowerCase();
+  if (c === 'us') {
+    const code = s.toUpperCase();
+    return resolveLocation({ country: 'us', state: code });
+  }
+  if (c === 'uk') {
+    return resolveLocation({ country: 'uk', cityId: slug });
+  }
+  return null;
+}
+
 export function resolveLocation({ country, state, cityId, lat, lon }) {
   if (lat != null && lon != null) {
     return findNearestLocation(Number(lat), Number(lon));

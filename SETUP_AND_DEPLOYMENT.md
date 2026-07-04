@@ -2,6 +2,8 @@
 
 This document walks you from a fresh machine to a **fully functional** production deployment: databases, API keys, AI pipeline, admin panel, ads, SSL, Nginx, PM2, and optional CI/CD.
 
+**Hostinger VPS:** see [HOSTINGER_DEPLOYMENT.md](./HOSTINGER_DEPLOYMENT.md) for step-by-step VPS access, SSL, security, and weather SEO pages.
+
 **Repository layout (what you are deploying):**
 
 | Path | Role |

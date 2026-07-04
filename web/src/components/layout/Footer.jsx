@@ -7,7 +7,7 @@ export function Footer() {
         <div>
           <div className="font-display text-2xl font-bold text-primary-950 dark:text-white">The Daily Lens</div>
           <p className="mt-2 max-w-md text-sm text-gray-600 dark:text-gray-300">
-            AI-assisted journalism with human editorial standards. Updated every fifteen minutes from trusted
+            Independent news and analysis. Updated throughout the day from trusted
             sources worldwide.
           </p>
         </div>
@@ -41,9 +41,6 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <Link href="/admin/login" className="hover:text-primary-700">
-                  Admin
-                </Link>
               </li>
               <li>
                 <a href="/sitemap.xml" className="hover:text-primary-700">

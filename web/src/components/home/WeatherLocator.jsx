@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { api } from '@/services/api';
+import { inferUkRegionIdFromCityComposite } from '@/utils/weatherRegionUtils';
 
 export function WeatherLocator({ compact = false }) {
   const [data, setData] = useState(null);
@@ -13,6 +14,7 @@ export function WeatherLocator({ compact = false }) {
   const [cityId, setCityId] = useState('');
   const [loading, setLoading] = useState(true);
   const [geoDenied, setGeoDenied] = useState(false);
+  const [pinnedLocation, setPinnedLocation] = useState(false);
 
   const load = useCallback(async (params = {}) => {
     setLoading(true);
@@ -20,28 +22,77 @@ export function WeatherLocator({ compact = false }) {
       const { data: w } = await api.get('/site/weather', { params });
       setData(w);
       if (w.catalog) setCatalog(w.catalog);
-      if (w.location?.country) setCountry(w.location.country);
+
+      const loc = w.location;
+      if (loc?.country === 'us') {
+        setCountry('us');
+        setState(loc.id || '');
+        setRegion('');
+        setCityId('');
+      } else if (loc?.country === 'uk') {
+        setCountry('uk');
+        const rid = inferUkRegionIdFromCityComposite(w.catalog, loc.id);
+        setRegion(rid);
+        setCityId(loc.id || '');
+      } else if (w.catalog && !loc) {
+        setCountry('');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setGeoDenied(true);
-      load({ country: 'us', state: 'NY' });
-      return;
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const { data: hp } = await api.get('/site/homepage');
+        if (cancelled || hp.heroMode !== 'weather') return;
+
+        const p = hp.weatherPrefs || {};
+        const useGeo = p.useVisitorLocation !== false;
+        setPinnedLocation(!useGeo);
+
+        const fallback =
+          p.country === 'uk' && p.cityId
+            ? { country: 'uk', cityId: p.cityId }
+            : { country: 'us', state: p.state || 'NY' };
+
+        if (!useGeo) {
+          setGeoDenied(false);
+          await load(fallback);
+          return;
+        }
+
+        if (!navigator.geolocation) {
+          setGeoDenied(true);
+          await load(fallback);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            if (cancelled) return;
+            setGeoDenied(false);
+            await load({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          },
+          async () => {
+            if (cancelled) return;
+            setGeoDenied(true);
+            await load(fallback);
+          },
+          { timeout: 8000, maximumAge: 300000 },
+        );
+      } catch {
+        if (!cancelled) await load({ country: 'us', state: 'NY' });
+      }
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        load({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-      },
-      () => {
-        setGeoDenied(true);
-        load({ country: 'us', state: 'NY' });
-      },
-      { timeout: 8000, maximumAge: 300000 },
-    );
+
+    init();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const us = catalog?.countries?.find((c) => c.id === 'us');
@@ -60,10 +111,10 @@ export function WeatherLocator({ compact = false }) {
     if (code) load({ country: 'us', state: code });
   };
 
-  const onUkCity = (rId, cId) => {
+  const onUkCity = (rId, compositeCityId) => {
     setRegion(rId);
-    setCityId(cId);
-    if (cId) load({ country: 'uk', cityId: cId });
+    setCityId(compositeCityId);
+    if (compositeCityId) load({ country: 'uk', cityId: compositeCityId });
   };
 
   const f = data?.forecast;
@@ -78,8 +129,11 @@ export function WeatherLocator({ compact = false }) {
         <span className="font-semibold text-gray-900 dark:text-white">
           {f?.name || 'Your location'}
         </span>
-        {geoDenied && (
-          <span className="text-xs text-gray-500">(location access denied — pick below)</span>
+        {pinnedLocation && (
+          <span className="text-xs text-sky-700 dark:text-sky-300">(default region — change below)</span>
+        )}
+        {!pinnedLocation && geoDenied && (
+          <span className="text-xs text-gray-500">(location unavailable — pick a region below)</span>
         )}
       </div>
 
@@ -116,7 +170,8 @@ export function WeatherLocator({ compact = false }) {
             <select
               value={region}
               onChange={(e) => {
-                setRegion(e.target.value);
+                const rId = e.target.value;
+                setRegion(rId);
                 setCityId('');
               }}
               className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
@@ -152,7 +207,9 @@ export function WeatherLocator({ compact = false }) {
           <div className="text-4xl font-bold text-gray-900 dark:text-white">{f.current.temp}°</div>
           <div className="text-sm text-gray-600 dark:text-gray-300">
             <p>{f.current.condition}</p>
-            <p>Feels like {f.current.feelsLike}° · Wind {f.current.windKph} km/h</p>
+            <p>
+              Feels like {f.current.feelsLike}° · Wind {f.current.windKph} km/h
+            </p>
           </div>
         </div>
       )}
