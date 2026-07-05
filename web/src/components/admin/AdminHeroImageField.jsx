@@ -15,7 +15,7 @@ const STATUS_COPY = {
   idle: { label: 'AI hero pending', hint: 'An AI image is generated automatically from your headline' },
   generating: { label: 'Generating AI image…', hint: 'Creating and saving your hero image locally' },
   persisting: { label: 'Saving image…', hint: 'Downloading and compressing the hero image' },
-  ready: { label: 'Hero image ready', hint: 'This image is shown on the live article' },
+  ready: { label: 'Hero image ready', hint: 'Applied images are saved to the live site automatically' },
 };
 
 export default function AdminHeroImageField({
@@ -30,6 +30,7 @@ export default function AdminHeroImageField({
   slug = '',
   category = 'World',
   onChange,
+  onSaveHero = null,
   compact = false,
 }) {
   const fileRef = useRef(null);
@@ -53,6 +54,18 @@ export default function AdminHeroImageField({
 
   const patch = useCallback((fields) => onChange?.({ ...fields }), [onChange]);
   const slugHint = slug?.trim() || title?.trim() || 'hero';
+
+  const applyHero = useCallback(
+    async (fields, { toastMessage, autoSave = true } = {}) => {
+      patch(fields);
+      if (autoSave && onSaveHero) {
+        await onSaveHero(fields);
+      } else if (toastMessage) {
+        toast.success(toastMessage);
+      }
+    },
+    [patch, onSaveHero],
+  );
 
   useEffect(() => {
     setUrlInput((current) => current || heroImageUrl || featuredImage || '');
@@ -98,14 +111,18 @@ export default function AdminHeroImageField({
           { timeout: LONG_TIMEOUT_MS },
         );
         if (data?.url) {
-          patch({
+          const fields = {
             featuredImage: data.url,
             heroImageUrl: data.url,
             heroImageSource: 'ai',
             heroImageUploadFilename: '',
-          });
+          };
+          if (silent) {
+            patch(fields);
+          } else {
+            await applyHero(fields, { toastMessage: 'AI hero image saved' });
+          }
           setUrlInput(data.url);
-          if (!silent) toast.success('AI hero image saved');
           return data.url;
         }
       } catch (err) {
@@ -115,7 +132,7 @@ export default function AdminHeroImageField({
       }
       return null;
     },
-    [title, category, slugHint, patch],
+    [title, category, slugHint, patch, applyHero],
   );
 
   useEffect(() => {
@@ -137,7 +154,7 @@ export default function AdminHeroImageField({
       const { data } = await api.post('/admin/upload-hero-image', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      patch({
+      const fields = {
         featuredImage: data.url,
         heroImageUrl: data.url,
         heroImageAlt: data.alt || heroImageAlt || title,
@@ -145,9 +162,9 @@ export default function AdminHeroImageField({
         heroImageCreditUrl: '',
         heroImageSource: 'upload',
         heroImageUploadFilename: data.filename || '',
-      });
+      };
       setUrlInput(data.url);
-      toast.success('Hero image uploaded');
+      await applyHero(fields, { toastMessage: 'Hero image uploaded' });
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Upload failed');
     } finally {
@@ -159,7 +176,7 @@ export default function AdminHeroImageField({
   const applySearchImage = async (img) => {
     setSearchOpen(false);
     const localUrl = await persistRemoteUrl(img.url);
-    patch({
+    const fields = {
       featuredImage: localUrl,
       heroImageUrl: localUrl,
       heroImageAlt: img.alt || title,
@@ -167,9 +184,9 @@ export default function AdminHeroImageField({
       heroImageCreditUrl: img.creditUrl || '',
       heroImageSource: img.source || 'search',
       heroImageUploadFilename: '',
-    });
+    };
     setUrlInput(localUrl);
-    toast.success('Hero image selected');
+    await applyHero(fields, { toastMessage: 'Hero image selected' });
   };
 
   const applyImageUrl = async () => {
@@ -183,13 +200,14 @@ export default function AdminHeroImageField({
       return;
     }
     const localUrl = await persistRemoteUrl(url);
-    patch({
+    const fields = {
       featuredImage: localUrl,
       heroImageUrl: localUrl,
       heroImageSource: 'original',
       heroImageUploadFilename: '',
-    });
-    toast.success('Hero image URL applied');
+    };
+    setUrlInput(localUrl);
+    await applyHero(fields, { toastMessage: onSaveHero ? undefined : 'Hero image URL applied — click Save changes' });
   };
 
   const copy = STATUS_COPY[effectiveStatus] || STATUS_COPY.idle;

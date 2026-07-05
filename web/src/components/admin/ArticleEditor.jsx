@@ -113,40 +113,56 @@ export function ArticleEditor() {
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
-  const buildPayload = () => ({
-    title: form.title,
-    slug: form.slug || undefined,
-    summary: form.summary,
-    body: form.body,
-    category: form.category,
-    tags: form.tags
+  const buildPayload = (source = form) => ({
+    title: source.title,
+    slug: source.slug || undefined,
+    summary: source.summary,
+    body: source.body,
+    category: source.category,
+    tags: source.tags
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean),
-    author: form.author,
-    featuredImage: form.featuredImage || '',
-    heroImage: form.heroImageUrl
+    author: source.author,
+    featuredImage: source.featuredImage || '',
+    heroImage: source.heroImageUrl
       ? {
-          url: form.heroImageUrl,
-          alt: form.heroImageAlt || form.title,
-          credit: form.heroImageCredit || '',
-          creditUrl: form.heroImageCreditUrl || '',
-          source: form.heroImageSource === 'upload' ? 'upload' : form.heroImageSource || 'original',
-          uploadFilename: form.heroImageUploadFilename || undefined,
+          url: source.heroImageUrl,
+          alt: source.heroImageAlt || source.title,
+          credit: source.heroImageCredit || '',
+          creditUrl: source.heroImageCreditUrl || '',
+          source: source.heroImageSource === 'upload' ? 'upload' : source.heroImageSource || 'original',
+          uploadFilename: source.heroImageUploadFilename || undefined,
         }
       : undefined,
-    isBreaking: form.isBreaking,
-    isFeatured: form.isFeatured,
-    isPublished: form.isPublished,
-    isPaused: form.isPaused,
+    isBreaking: source.isBreaking,
+    isFeatured: source.isFeatured,
+    isPublished: source.isPublished,
+    isPaused: source.isPaused,
     forecast: {
-      enabled: form.forecastEnabled,
-      headline: form.forecastHeadline,
-      body: form.forecastBody,
-      confidence: form.forecastConfidence,
+      enabled: source.forecastEnabled,
+      headline: source.forecastHeadline,
+      body: source.forecastBody,
+      confidence: source.forecastConfidence,
     },
-    seoScore: Number(form.seoScore) || 7,
+    seoScore: Number(source.seoScore) || 7,
   });
+
+  const saveHeroToSite = async (heroFields) => {
+    if (isNew) {
+      toast.success('Hero image set — publish the article to show it on site');
+      return;
+    }
+    const merged = { ...form, ...heroFields };
+    setForm(merged);
+    try {
+      await api.put(`/admin/articles/${id}`, buildPayload(merged));
+      toast.success('Hero image saved to live site');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not save hero to site');
+      throw err;
+    }
+  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -275,6 +291,7 @@ export function ArticleEditor() {
             slug={form.slug}
             category={form.category}
             onChange={(fields) => setForm((f) => ({ ...f, ...fields }))}
+            onSaveHero={saveHeroToSite}
           />
         </section>
 

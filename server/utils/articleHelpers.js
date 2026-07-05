@@ -37,6 +37,22 @@ export function buildArticlePayload(input, existing = null) {
   const forecast = input.forecast || {};
   const showForecast = !!forecast.enabled;
 
+  const incomingFeatured = input.featuredImage?.trim() || '';
+  const incomingHeroUrl = input.heroImage?.url?.trim() || '';
+  const heroSource = input.heroImage?.source || '';
+  const userPickedHero =
+    incomingHeroUrl &&
+    (heroSource === 'original' || heroSource === 'search' || heroSource === 'upload' || heroSource === 'ai');
+
+  let featuredImage = incomingFeatured;
+  if (userPickedHero && incomingHeroUrl) {
+    featuredImage = incomingHeroUrl;
+  } else if (!featuredImage && incomingHeroUrl) {
+    featuredImage = incomingHeroUrl;
+  } else if (!featuredImage && existing?.featuredImage) {
+    featuredImage = existing.featuredImage;
+  }
+
   const payload = {
     title,
     summary,
@@ -62,7 +78,7 @@ export function buildArticlePayload(input, existing = null) {
     ),
     seoScore: input.seoScore ?? existing?.seoScore ?? 7,
     readTime: input.readTime ?? estimateReadTime(body),
-    featuredImage: input.featuredImage?.trim() || existing?.featuredImage || undefined,
+    featuredImage: featuredImage || undefined,
     isBreaking: !!input.isBreaking,
     isFeatured: !!input.isFeatured,
     isPublished: input.isPublished !== false,
@@ -104,25 +120,33 @@ export function buildArticlePayload(input, existing = null) {
   return payload;
 }
 
-/** Ensure every article has a locally stored featured hero for fast loading. */
+/** Ensure every article has a featured hero; persist remote URLs when possible. */
 export async function ensureFeaturedImage(payload, slugHint = '') {
   if (!payload.title?.trim()) return payload;
   const hint = slugHint || payload.slug || payload.title;
+  const heroSource = payload.heroImage?.source || '';
+  const userPickedHero =
+    heroSource === 'original' || heroSource === 'search' || heroSource === 'upload';
 
   if (!payload.featuredImage?.trim()) {
-    payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World', hint);
-    return payload;
+    if (userPickedHero && payload.heroImage?.url?.trim()) {
+      payload.featuredImage = payload.heroImage.url.trim();
+    } else {
+      payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World', hint);
+      return payload;
+    }
   }
 
+  const before = payload.featuredImage;
   payload.featuredImage = await persistFeaturedImageIfRemote(payload.featuredImage, hint);
 
-  if (payload.heroImage?.url && !isLocalHeroUrl(payload.heroImage.url)) {
-    payload.heroImage = {
-      ...payload.heroImage,
-      url: payload.featuredImage,
-    };
-  } else if (payload.featuredImage && payload.heroImage) {
+  if (payload.heroImage) {
     payload.heroImage = { ...payload.heroImage, url: payload.featuredImage };
+  }
+
+  if (userPickedHero && !isLocalHeroUrl(payload.featuredImage) && payload.featuredImage === before) {
+    // Publisher hotlink — keep remote URL; browser loads it directly on the site.
+    return payload;
   }
 
   return payload;

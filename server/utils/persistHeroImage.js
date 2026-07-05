@@ -15,13 +15,22 @@ export async function persistHeroImageFromUrl(url, { slugHint = 'hero', timeoutM
   if (!trimmed) return null;
   if (isLocalHeroUrl(trimmed)) return trimmed;
 
-  const { data } = await axios.get(trimmed, {
+  let target;
+  try {
+    target = new URL(trimmed);
+  } catch {
+    throw new Error('Invalid image URL');
+  }
+
+  const { data } = await axios.get(target.href, {
     responseType: 'arraybuffer',
     timeout: timeoutMs,
     maxRedirects: 5,
     headers: {
       'User-Agent': USER_AGENT,
       Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      Referer: `${target.origin}/`,
+      Origin: target.origin,
     },
     validateStatus: (s) => s >= 200 && s < 400,
   });

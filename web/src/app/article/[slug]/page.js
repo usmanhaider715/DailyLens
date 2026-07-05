@@ -6,7 +6,7 @@ import { JsonLd } from '@/components/seo/JsonLd';
 import { buildNewsArticleJsonLd, buildBreadcrumbJsonLd } from '@/utils/seoHelpers';
 import { getArticleFeaturedImage } from '@/utils/articleImage';
 
-export const revalidate = 120;
+export const revalidate = 30;
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
