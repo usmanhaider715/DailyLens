@@ -5,16 +5,18 @@ import { api } from '@/services/api';
 import toast from 'react-hot-toast';
 import { HeroImageSearchModal } from './HeroImageSearchModal.jsx';
 import { Spinner } from '../common/Spinner.jsx';
-import { resolveHeroSrc } from '@/utils/heroImage';
+import { fallbackHeroUrl, resolveHeroSrc } from '@/utils/heroImage';
 import { isPollinationsUrl } from '@/utils/pollinationsImage';
-import { Search, Sparkles, Upload, ExternalLink, Link2 } from 'lucide-react';
+import { Search, Sparkles, Upload, ExternalLink, Link2, RefreshCw } from 'lucide-react';
+
+const PREVIEW_TIMEOUT_MS = 15000;
 
 const STATUS_COPY = {
   idle: { label: 'AI hero pending', hint: 'An AI image is generated automatically from your headline' },
   generating: { label: 'Generating AI image…', hint: 'Pollinations AI is creating your hero image' },
   loading: { label: 'Loading preview…', hint: 'Fetching hero image' },
   ready: { label: 'Hero image ready', hint: 'This image is shown on the live article' },
-  error: { label: 'Preview failed — retry AI', hint: 'Try Regenerate AI or pick another image below' },
+  error: { label: 'Preview failed — retry or pick another', hint: 'Try Regenerate AI, paste a direct image URL, or upload' },
 };
 
 export default function AdminHeroImageField({
@@ -32,6 +34,7 @@ export default function AdminHeroImageField({
 }) {
   const fileRef = useRef(null);
   const autoGenAttempted = useRef(false);
+  const previewTimerRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -45,20 +48,34 @@ export default function AdminHeroImageField({
 
   const effectiveStatus = generating
     ? 'generating'
-    : displayUrl && !previewLoaded && !previewError
-      ? 'loading'
-      : previewError
-        ? 'error'
+    : previewError
+      ? 'error'
+      : displayUrl && !previewLoaded
+        ? 'loading'
         : displayUrl
           ? 'ready'
           : 'idle';
 
+  const patch = useCallback((fields) => onChange?.({ ...fields }), [onChange]);
+
+  useEffect(() => {
+    setUrlInput((current) => current || heroImageUrl || featuredImage || '');
+  }, [heroImageUrl, featuredImage]);
+
   useEffect(() => {
     setPreviewLoaded(false);
     setPreviewError(false);
-  }, [previewSrc]);
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    if (!previewSrc) return undefined;
 
-  const patch = (fields) => onChange?.({ ...fields });
+    previewTimerRef.current = setTimeout(() => {
+      setPreviewError(true);
+    }, PREVIEW_TIMEOUT_MS);
+
+    return () => {
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    };
+  }, [previewSrc]);
 
   const generateAiImage = useCallback(
     async (silent = false) => {
@@ -68,6 +85,7 @@ export default function AdminHeroImageField({
       }
       setGenerating(true);
       setPreviewError(false);
+      setPreviewLoaded(false);
       try {
         const { data } = await api.post('/admin/ai/generate-featured-image', {
           title: title.trim(),
@@ -75,6 +93,7 @@ export default function AdminHeroImageField({
         });
         if (data?.url) {
           patch({ featuredImage: data.url });
+          setUrlInput(data.url);
           if (!silent) toast.success('AI hero image generated');
           return data.url;
         }
@@ -85,7 +104,7 @@ export default function AdminHeroImageField({
       }
       return null;
     },
-    [title, category, patch]
+    [title, category, patch],
   );
 
   useEffect(() => {
@@ -98,6 +117,7 @@ export default function AdminHeroImageField({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setPreviewError(false);
     try {
       const fd = new FormData();
       fd.append('image', file);
@@ -116,6 +136,7 @@ export default function AdminHeroImageField({
         heroImageSource: 'upload',
         heroImageUploadFilename: data.filename || '',
       });
+      setUrlInput(data.url);
       toast.success('Hero image uploaded');
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Upload failed');
@@ -135,6 +156,7 @@ export default function AdminHeroImageField({
       heroImageSource: img.source || 'search',
       heroImageUploadFilename: '',
     });
+    setUrlInput(img.url);
     setSearchOpen(false);
     toast.success('Hero image selected');
   };
@@ -149,6 +171,8 @@ export default function AdminHeroImageField({
       toast.error('Enter a valid http(s) or upload path URL');
       return;
     }
+    setPreviewError(false);
+    setPreviewLoaded(false);
     patch({
       featuredImage: url,
       heroImageUrl: url,
@@ -160,6 +184,7 @@ export default function AdminHeroImageField({
 
   const copy = STATUS_COPY[effectiveStatus] || STATUS_COPY.idle;
   const showOverlay = ['generating', 'loading'].includes(effectiveStatus);
+  const showPreview = previewSrc && !previewError;
 
   return (
     <>
@@ -189,7 +214,7 @@ export default function AdminHeroImageField({
         </div>
 
         <div className={`relative overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-800 ${compact ? 'aspect-[16/10]' : 'aspect-[21/9]'}`}>
-          {previewSrc ? (
+          {showPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={previewSrc}
@@ -197,9 +222,41 @@ export default function AdminHeroImageField({
               alt={heroImageAlt || title || 'Hero preview'}
               className={`h-full w-full object-cover transition-opacity duration-500 ${previewLoaded ? 'opacity-100' : 'opacity-0'}`}
               referrerPolicy="no-referrer"
-              onLoad={() => setPreviewLoaded(true)}
-              onError={() => setPreviewError(true)}
+              onLoad={() => {
+                if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+                setPreviewLoaded(true);
+                setPreviewError(false);
+              }}
+              onError={() => {
+                if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+                setPreviewError(true);
+                setPreviewLoaded(false);
+              }}
             />
+          ) : previewError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={fallbackHeroUrl(category)}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-40"
+              />
+              <div className="relative z-10 rounded-lg bg-black/60 px-4 py-3 text-sm text-white">
+                <p className="font-medium">Could not load this image</p>
+                <p className="mt-1 text-xs text-white/80">Try Regenerate AI, upload, or use a direct image URL</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewError(false);
+                    setPreviewLoaded(false);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold hover:bg-white/30"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Retry preview
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
               {generating ? (

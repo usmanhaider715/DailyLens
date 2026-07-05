@@ -8,11 +8,15 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const t = localStorage.getItem('token');
     const raw = localStorage.getItem('user');
-    if (t) setToken(t);
+    if (t) {
+      setToken(t);
+      setAuthToken(t);
+    }
     if (raw) {
       try {
         setUser(JSON.parse(raw));
@@ -20,9 +24,11 @@ export function AuthProvider({ children }) {
         /* ignore */
       }
     }
+    setReady(true);
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
     if (token) {
       localStorage.setItem('token', token);
       setAuthToken(token);
@@ -30,7 +36,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('token');
       setAuthToken(null);
     }
-  }, [token]);
+  }, [token, ready]);
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
@@ -49,11 +55,12 @@ export function AuthProvider({ children }) {
     () => ({
       token,
       user,
+      ready,
       login,
       logout,
       isAuthenticated: !!token,
     }),
-    [token, user]
+    [token, user, ready]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

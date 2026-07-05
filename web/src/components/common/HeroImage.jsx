@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fallbackHeroUrl, resolveHeroSrc } from '@/utils/heroImage';
+
+const LOAD_TIMEOUT_MS = 15000;
 
 export function HeroImage({
   url,
@@ -17,11 +19,20 @@ export function HeroImage({
   const [src, setSrc] = useState(() => resolveHeroSrc(url, category));
   const [errored, setErrored] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     setSrc(resolveHeroSrc(url, category));
     setErrored(false);
     setLoaded(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setErrored(true);
+      setLoaded(true);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [url, category]);
 
   const display = errored ? fallbackHeroUrl(category) : src;
@@ -50,8 +61,12 @@ export function HeroImage({
         height={height}
         decoding="async"
         referrerPolicy="no-referrer"
-        onLoad={() => setLoaded(true)}
+        onLoad={() => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          setLoaded(true);
+        }}
         onError={() => {
+          if (timerRef.current) clearTimeout(timerRef.current);
           if (!errored) {
             setErrored(true);
             setSrc(fallbackHeroUrl(category));

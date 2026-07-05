@@ -5,24 +5,27 @@ export function fallbackHeroUrl() {
   return DEFAULT_HERO;
 }
 
-function needsProxy(url) {
-  if (!url) return false;
+const DIRECT_HOSTS = ['images.unsplash.com', 'plus.unsplash.com', 'res.cloudinary.com'];
+
+function parseUrl(url) {
   try {
-    const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    if (typeof window !== 'undefined') {
-      return (
-        u.origin !== window.location.origin &&
-        !u.hostname.includes('cloudinary.com') &&
-        !u.hostname.includes('pollinations.ai')
-      );
-    }
-    return !u.hostname.includes('cloudinary.com') && !u.hostname.includes('pollinations.ai');
+    return new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
   } catch {
-    return false;
+    return null;
   }
 }
 
-/** Resolve hero URL for <img src> — proxies hotlinked publisher images through our API. */
+function needsProxy(url) {
+  if (!url) return false;
+  if (url.startsWith('/uploads/') || url.startsWith('/api/')) return false;
+  const u = parseUrl(url);
+  if (!u) return false;
+  if (typeof window !== 'undefined' && u.origin === window.location.origin) return false;
+  if (DIRECT_HOSTS.some((h) => u.hostname.includes(h))) return false;
+  return u.protocol === 'http:' || u.protocol === 'https:';
+}
+
+/** Resolve hero URL for <img src> — proxies external images through our API. */
 export function resolveHeroSrc(url, category) {
   const trimmed = (url || '').trim();
   if (!trimmed) return fallbackHeroUrl(category);
@@ -31,4 +34,28 @@ export function resolveHeroSrc(url, category) {
     return `/api/images/proxy?url=${encodeURIComponent(trimmed)}`;
   }
   return trimmed;
+}
+
+/** Preload hero image; resolves true when loaded, false on error/timeout. */
+export function preloadHeroImage(url, category, timeoutMs = 12000) {
+  return new Promise((resolve) => {
+    const src = resolveHeroSrc(url, category);
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const img = new Image();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.referrerPolicy = 'no-referrer';
+    img.src = src;
+  });
 }

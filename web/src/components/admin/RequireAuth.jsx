@@ -7,22 +7,22 @@ import { setAuthToken } from '@/services/api';
 import { Spinner } from '@/components/common/Spinner';
 
 export function RequireAuth({ children }) {
-  const { token } = useAuth();
+  const { token, ready } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    setAuthToken(token);
+    if (token) setAuthToken(token);
   }, [token]);
 
   useEffect(() => {
-    if (token === null) return;
+    if (!ready) return;
     if (!token) {
       router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
     }
-  }, [token, router, pathname]);
+  }, [ready, token, router, pathname]);
 
-  if (token === null) {
+  if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner />

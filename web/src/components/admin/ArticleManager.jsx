@@ -9,7 +9,10 @@ import { formatArticleDate } from '../../utils/formatDate.js';
 import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
 import { HeroImage } from '../common/HeroImage.jsx';
 
+import { useAuth } from '@/context/AuthContext';
+
 export function ArticleManager() {
+  const { ready } = useAuth();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -38,9 +41,10 @@ export function ArticleManager() {
   };
 
   useEffect(() => {
+    if (!ready) return;
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, from, to]);
+  }, [ready, category, from, to]);
 
   const toggleSelect = (id) => {
     setSelected((prev) => {

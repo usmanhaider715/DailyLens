@@ -14,7 +14,17 @@ const ALLOWED_TYPES = new Set([
 
 export async function proxyHeroImage(req, res, next) {
   try {
-    const raw = req.query.url;
+    let raw = req.query.url;
+    if (Array.isArray(raw)) raw = raw[0];
+    if (typeof raw !== 'string' || !raw.trim()) {
+      return res.status(400).json({ message: 'Invalid image URL' });
+    }
+    try {
+      raw = decodeURIComponent(raw.trim());
+    } catch {
+      raw = raw.trim();
+    }
+
     if (!isUsableImageUrl(raw)) {
       return res.status(400).json({ message: 'Invalid image URL' });
     }
@@ -28,7 +38,7 @@ export async function proxyHeroImage(req, res, next) {
       maxRedirects: 5,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (compatible; DailyLens/1.0; +https://dailylens.com) AppleWebKit/537.36',
+          'Mozilla/5.0 (compatible; DailyLens/1.0; +https://thedailylens.space) AppleWebKit/537.36',
         Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         Referer: `${target.protocol}//${target.host}/`,
       },
@@ -47,6 +57,7 @@ export async function proxyHeroImage(req, res, next) {
   } catch (e) {
     if (e.status === 400) return res.status(400).json({ message: 'Invalid image URL' });
     if (e.response?.status === 404) return res.status(404).end();
+    if (e.code === 'ERR_INVALID_URL') return res.status(400).json({ message: 'Invalid image URL' });
     next(e);
   }
 }
