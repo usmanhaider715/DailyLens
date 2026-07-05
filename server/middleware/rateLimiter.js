@@ -6,6 +6,17 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests. Please try again later.' },
+  skip: (req) => {
+    const p = req.path;
+    return (
+      p === '/robots.txt' ||
+      p === '/feed.xml' ||
+      p === '/llms.txt' ||
+      p === '/health' ||
+      p === '/sitemap.xml' ||
+      /^\/sitemap-.*\.xml$/.test(p)
+    );
+  },
 });
 
 export const authLimiter = rateLimit({
