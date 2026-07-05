@@ -1,22 +1,32 @@
+import { generateArticleImage as buildPollinationsUrl } from './pollinationsUrl.js';
+import { persistHeroImageFromUrl } from './persistHeroImage.js';
+import { logger } from './logger.js';
+
+export { buildPollinationsUrl as generateArticleImage };
+
 export const DEFAULT_FEATURED_PLACEHOLDER =
   'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=630&fit=crop&q=80&auto=format';
 
 /**
- * Build a Pollinations.ai URL for an AI-generated editorial hero image.
- * No API key required — image is rendered on first request.
+ * Generate an AI hero and save it locally so the site loads instantly.
  */
-export function generateArticleImage(title, category) {
-  const subject = String(title || 'Breaking news').trim().slice(0, 120);
-  const cat = String(category || 'News').trim();
-  const prompt = `photorealistic editorial photo of ${subject}, ${cat} news, high quality, 4k, professional journalism`;
-  const encoded = encodeURIComponent(prompt);
-  const seed = Math.floor(Math.random() * 1_000_000_000);
-  return `https://image.pollinations.ai/prompt/${encoded}?width=1200&height=630&nologo=true&seed=${seed}`;
-}
-
-/**
- * Resolve featured image URL with safe fallback — never throws.
- */
-export async function resolveFeaturedImageUrl(title, category) {
-  return generateArticleImage(title, category);
+export async function resolveFeaturedImageUrl(title, category, slugHint = '') {
+  const remoteUrl = buildPollinationsUrl(title, category);
+  const hint = slugHint || title || 'hero';
+  try {
+    return await persistHeroImageFromUrl(remoteUrl, { slugHint: hint, timeoutMs: 90000 });
+  } catch (err) {
+    logger.warn('AI hero persist failed — using Unsplash placeholder', {
+      title: String(title || '').slice(0, 60),
+      error: err?.message,
+    });
+    try {
+      return await persistHeroImageFromUrl(DEFAULT_FEATURED_PLACEHOLDER, {
+        slugHint: hint,
+        timeoutMs: 20000,
+      });
+    } catch {
+      return DEFAULT_FEATURED_PLACEHOLDER;
+    }
+  }
 }

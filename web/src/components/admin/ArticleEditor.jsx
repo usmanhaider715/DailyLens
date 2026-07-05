@@ -272,6 +272,7 @@ export function ArticleEditor() {
             heroImageSource={form.heroImageSource}
             heroImageUploadFilename={form.heroImageUploadFilename}
             title={form.title}
+            slug={form.slug}
             category={form.category}
             onChange={(fields) => setForm((f) => ({ ...f, ...fields }))}
           />

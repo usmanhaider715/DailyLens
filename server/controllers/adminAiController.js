@@ -14,6 +14,7 @@ import {
   MAX_BATCH_SIZE,
 } from '../services/batchArticleService.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
+import { persistFeaturedImageIfRemote } from '../utils/persistHeroImage.js';
 
 export { buildAiDraftResponse } from '../services/aiDraftService.js';
 
@@ -43,12 +44,29 @@ export async function getAiNewsFeed(req, res, next) {
 
 export async function generateFeaturedImage(req, res, next) {
   try {
-    const { title, category } = req.body || {};
+    const { title, category, slug } = req.body || {};
     if (!title?.trim()) {
       return res.status(400).json({ message: 'title is required' });
     }
-    const url = await resolveFeaturedImageUrl(title.trim(), category || 'World');
+    const url = await resolveFeaturedImageUrl(
+      title.trim(),
+      category || 'World',
+      slug || title.trim(),
+    );
     res.json({ url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function persistFeaturedImage(req, res, next) {
+  try {
+    const { url, slug, title } = req.body || {};
+    if (!url?.trim()) {
+      return res.status(400).json({ message: 'url is required' });
+    }
+    const localUrl = await persistFeaturedImageIfRemote(url.trim(), slug || title || 'hero');
+    res.json({ url: localUrl });
   } catch (err) {
     next(err);
   }

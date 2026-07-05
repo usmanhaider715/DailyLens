@@ -45,6 +45,7 @@ router.get('/ai/google-trends', adminAiLimiter, adminAi.getGoogleTrends);
 router.get('/ai/google-news/24h', adminAiLimiter, adminAi.getGoogleNews24h);
 router.get('/ai/google-news/search', adminAiLimiter, adminAi.searchGoogleNewsAdmin);
 router.post('/ai/generate-featured-image', adminAiLimiter, adminAi.generateFeaturedImage);
+router.post('/ai/persist-featured-image', adminAiLimiter, adminAi.persistFeaturedImage);
 router.post('/ai/generate-article', adminAiLimiter, adminAi.generateArticleFromStory);
 router.post('/ai/generate-from-rough-text', adminAiLimiter, adminAi.generateArticleFromRoughText);
 router.post('/ai/generate-from-trend', adminAiLimiter, adminAi.generateArticleFromTrend);

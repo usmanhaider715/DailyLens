@@ -5,6 +5,7 @@ import { stripHtml } from './stripHtml.js';
 import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
 import { deleteHeroUploadFile, extractUploadFilename } from './heroFileUpload.js';
 import { resolveFeaturedImageUrl } from './imageGenerator.js';
+import { persistFeaturedImageIfRemote, isLocalHeroUrl } from './persistHeroImage.js';
 
 export async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -103,10 +104,26 @@ export function buildArticlePayload(input, existing = null) {
   return payload;
 }
 
-/** Ensure every article has an AI featured hero for the public site. */
-export async function ensureFeaturedImage(payload) {
-  if (payload.featuredImage?.trim()) return payload;
+/** Ensure every article has a locally stored featured hero for fast loading. */
+export async function ensureFeaturedImage(payload, slugHint = '') {
   if (!payload.title?.trim()) return payload;
-  payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World');
+  const hint = slugHint || payload.slug || payload.title;
+
+  if (!payload.featuredImage?.trim()) {
+    payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World', hint);
+    return payload;
+  }
+
+  payload.featuredImage = await persistFeaturedImageIfRemote(payload.featuredImage, hint);
+
+  if (payload.heroImage?.url && !isLocalHeroUrl(payload.heroImage.url)) {
+    payload.heroImage = {
+      ...payload.heroImage,
+      url: payload.featuredImage,
+    };
+  } else if (payload.featuredImage && payload.heroImage) {
+    payload.heroImage = { ...payload.heroImage, url: payload.featuredImage };
+  }
+
   return payload;
 }

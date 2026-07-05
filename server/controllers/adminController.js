@@ -39,7 +39,7 @@ export async function getAdminArticle(req, res, next) {
 export async function createArticle(req, res, next) {
   try {
     const payload = buildArticlePayload(req.body);
-    await ensureFeaturedImage(payload);
+    await ensureFeaturedImage(payload, payload.slug || slugify(payload.title));
     payload.slug = await ensureUniqueSlug(payload.slug || slugify(payload.title));
     const doc = await Article.create(payload);
     await Category.updateOne({ name: doc.category }, { $inc: { articleCount: 1 } });
@@ -65,7 +65,7 @@ export async function updateArticle(req, res, next) {
     if (!existing) return res.status(404).json({ message: 'Article not found' });
 
     const payload = buildArticlePayload(req.body, existing);
-    await ensureFeaturedImage(payload);
+    await ensureFeaturedImage(payload, payload.slug || slugify(payload.title));
     if (req.body.slug && req.body.slug !== existing.slug) {
       payload.slug = await ensureUniqueSlug(slugify(req.body.slug));
     }

@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fallbackHeroUrl, resolveHeroSrc } from '@/utils/heroImage';
-
-const LOAD_TIMEOUT_MS = 15000;
 
 export function HeroImage({
   url,
@@ -16,43 +14,25 @@ export function HeroImage({
   height,
   fill = false,
 }) {
-  const [src, setSrc] = useState(() => resolveHeroSrc(url, category));
-  const [errored, setErrored] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const timerRef = useRef(null);
+  const [displaySrc, setDisplaySrc] = useState(() =>
+    url ? resolveHeroSrc(url, category) : fallbackHeroUrl(category),
+  );
 
   useEffect(() => {
-    setSrc(resolveHeroSrc(url, category));
-    setErrored(false);
-    setLoaded(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setErrored(true);
-      setLoaded(true);
-    }, LOAD_TIMEOUT_MS);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    setDisplaySrc(url ? resolveHeroSrc(url, category) : fallbackHeroUrl(category));
   }, [url, category]);
 
-  const display = errored ? fallbackHeroUrl(category) : src;
-
   const imgClass = fill
-    ? `absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'} ${className}`.trim()
-    : `transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'} ${className}`.trim();
+    ? `absolute inset-0 h-full w-full object-cover ${className}`.trim()
+    : className;
 
-  const wrapperClass = fill ? 'relative h-full w-full' : 'relative inline-block w-full';
+  const wrapperClass = fill ? 'relative h-full w-full overflow-hidden bg-gray-200 dark:bg-gray-800' : 'relative w-full overflow-hidden rounded-inherit bg-gray-200 dark:bg-gray-800';
 
   return (
     <div className={wrapperClass}>
-      {!loaded && !errored && (
-        <div
-          className={`absolute inset-0 animate-pulse bg-gray-200 dark:bg-gray-700 ${fill ? '' : 'rounded-inherit min-h-[120px]'}`}
-          aria-hidden
-        />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={display}
+        src={displaySrc}
         alt={alt}
         className={imgClass}
         loading={loading}
@@ -61,17 +41,9 @@ export function HeroImage({
         height={height}
         decoding="async"
         referrerPolicy="no-referrer"
-        onLoad={() => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          setLoaded(true);
-        }}
         onError={() => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          if (!errored) {
-            setErrored(true);
-            setSrc(fallbackHeroUrl(category));
-            setLoaded(true);
-          }
+          const fallback = fallbackHeroUrl(category);
+          if (displaySrc !== fallback) setDisplaySrc(fallback);
         }}
       />
     </div>
