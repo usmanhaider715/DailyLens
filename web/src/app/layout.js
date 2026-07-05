@@ -19,6 +19,9 @@ export const metadata = {
     siteName: 'The Daily Lens',
   },
   robots: { index: true, follow: true },
+  verification: {
+    google: 'l7nF6kwepQP6y0Z-agLLwkWCtPVhBhC_SI74jKLYnRE',
+  },
   alternates: {
     types: { 'application/rss+xml': [{ url: '/feed.xml', title: 'The Daily Lens RSS' }] },
   },
