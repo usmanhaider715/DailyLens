@@ -6,18 +6,21 @@ import { formatArticleDate } from '@/utils/formatDate';
 import { truncateText } from '@/utils/truncateText';
 import { stripHtml } from '@/utils/stripHtml';
 import { HeroImageFrame } from '@/components/common/HeroImageFrame';
+import { getArticleFeaturedImage, getArticleImageAlt } from '@/utils/articleImage';
 
 export function ArticleCard({ article, variant = 'default' }) {
   if (!article) return null;
   const summary = stripHtml(article.summary);
   const href = `/article/${article.slug}`;
+  const imageUrl = getArticleFeaturedImage(article);
+  const imageAlt = getArticleImageAlt(article);
 
   if (variant === 'compact') {
     return (
       <Link href={href} className="group flex gap-3">
         <HeroImageFrame
-          url={article.heroImage?.url}
-          alt={article.title}
+          url={imageUrl}
+          alt={imageAlt}
           category={article.category}
           aspect="4/3"
           className="w-24 shrink-0"
@@ -37,8 +40,8 @@ export function ArticleCard({ article, variant = 'default' }) {
     <article className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <Link href={href} className="block">
         <HeroImageFrame
-          url={article.heroImage?.url}
-          alt={article.title}
+          url={imageUrl}
+          alt={imageAlt}
           category={article.category}
           aspect="16/10"
         />

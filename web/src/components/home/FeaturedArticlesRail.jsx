@@ -4,6 +4,7 @@ import { ArticleCard } from './ArticleCard.jsx';
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
 import { HeroImageFrame } from '../common/HeroImageFrame.jsx';
+import { getArticleFeaturedImage, getArticleImageAlt } from '@/utils/articleImage';
 import { stripHtml } from '../../utils/stripHtml.js';
 
 function SectionLabel({ children }) {
@@ -40,8 +41,8 @@ export function FeaturedSidebar({ articles }) {
                 {idx + 2}
               </span>
               <HeroImageFrame
-                url={a.heroImage?.url}
-                alt={a.title}
+                url={getArticleFeaturedImage(a)}
+                alt={getArticleImageAlt(a)}
                 category={a.category}
                 aspect="4/3"
                 className="w-[88px] shrink-0 shadow-sm transition group-hover:shadow-md"

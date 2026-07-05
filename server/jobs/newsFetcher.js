@@ -12,6 +12,7 @@ import { logger } from '../utils/logger.js';
 import { updateTrendingCache } from './trendingUpdater.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
+import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 
 async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -27,7 +28,7 @@ async function bumpCategoryCount(categoryName) {
   await Category.updateOne({ name: categoryName }, { $inc: { articleCount: 1 } });
 }
 
-async function saveFromAi(raw, parsed, heroImage, published) {
+async function saveFromAi(raw, parsed, heroImage, published, featuredImage = '') {
   const baseSlug = slugify(parsed.headline);
   const slug = await ensureUniqueSlug(baseSlug);
   const doc = await Article.create({
@@ -41,6 +42,7 @@ async function saveFromAi(raw, parsed, heroImage, published) {
     category: parsed.category,
     tags: parsed.tags || [],
     heroImage,
+    featuredImage: featuredImage || undefined,
     author: 'AI Editorial Team',
     source: { name: raw.sourceName, url: raw.sourceUrl },
     seoScore: parsed.seoScore,
@@ -97,7 +99,16 @@ async function persistProcessed(raw, parsed) {
     });
   }
 
-  const doc = await saveFromAi(raw, parsed, heroImage, true);
+  let featuredImage = '';
+  if (process.env.GROQ_API_KEY) {
+    try {
+      featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
+    } catch {
+      /* non-blocking */
+    }
+  }
+
+  const doc = await saveFromAi(raw, parsed, heroImage, true, featuredImage);
 
   if (parsed.isBreaking) {
     emitBreakingNews({

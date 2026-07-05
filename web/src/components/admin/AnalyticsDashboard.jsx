@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Activity, Globe, Radio, Users, Zap } from 'lucide-react';
+import { Activity, Database, Globe, HardDrive, Radio, Users, Zap } from 'lucide-react';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 
@@ -51,6 +51,7 @@ export function AnalyticsDashboard() {
   const traffic = data?.liveTraffic;
   const liveNow = traffic?.liveNow ?? 0;
   const publicCount = traffic?.publicDisplayCount ?? '—';
+  const storage = data?.storage;
 
   return (
     <div>
@@ -142,6 +143,126 @@ export function AnalyticsDashboard() {
           </p>
         </div>
       </section>
+
+      {storage ? (
+        <section className="mt-10">
+          <div className="flex flex-wrap items-center gap-2">
+            <HardDrive className="h-5 w-5 text-primary-700 dark:text-primary-400" />
+            <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Storage usage</h2>
+          </div>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            MongoDB article data and uploaded hero images on this server.
+          </p>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950/50">
+            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total on server</p>
+                  <p className="mt-1 font-display text-3xl font-bold text-gray-900 dark:text-white">
+                    {storage.totalFormatted}
+                  </p>
+                </div>
+                <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Articles {storage.breakdown?.articlesPercent ?? 0}%</span>
+                  <span>Media {storage.breakdown?.mediaPercent ?? 0}%</span>
+                </div>
+              </div>
+              <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div
+                  className="bg-primary-600 transition-all"
+                  style={{ width: `${storage.breakdown?.articlesPercent ?? 0}%` }}
+                  title="Articles database"
+                />
+                <div
+                  className="bg-emerald-500 transition-all"
+                  style={{ width: `${storage.breakdown?.mediaPercent ?? 0}%` }}
+                  title="Uploaded media"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-2">
+              <div className="bg-white p-5 dark:bg-gray-950/50">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  <Database className="h-4 w-4 text-primary-600" />
+                  Articles (MongoDB)
+                </div>
+                <p className="mt-3 font-display text-2xl font-bold text-primary-800 dark:text-primary-200">
+                  {storage.articles?.totalFormatted}
+                </p>
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Total articles</dt>
+                    <dd className="font-semibold tabular-nums">{storage.articles?.count ?? 0}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Published</dt>
+                    <dd className="font-semibold tabular-nums">{storage.articles?.published ?? 0}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Unpublished</dt>
+                    <dd className="font-semibold tabular-nums">{storage.articles?.unpublished ?? 0}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Document data</dt>
+                    <dd className="font-medium tabular-nums">{storage.articles?.dataFormatted}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Indexes</dt>
+                    <dd className="font-medium tabular-nums">{storage.articles?.indexFormatted}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Avg per article</dt>
+                    <dd className="font-medium tabular-nums">{storage.articles?.avgFormatted}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="bg-white p-5 dark:bg-gray-950/50">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  <HardDrive className="h-4 w-4 text-emerald-600" />
+                  Media (uploaded heroes)
+                </div>
+                <p className="mt-3 font-display text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                  {storage.media?.totalFormatted}
+                </p>
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Hero files</dt>
+                    <dd className="font-semibold tabular-nums">{storage.media?.heroUploads?.fileCount ?? 0}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Linked to articles</dt>
+                    <dd className="font-semibold tabular-nums">{storage.media?.heroUploads?.referencedCount ?? 0}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Orphaned files</dt>
+                    <dd className="font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                      {storage.media?.heroUploads?.orphanedCount ?? 0}
+                      {(storage.media?.heroUploads?.orphanedCount ?? 0) > 0
+                        ? ` · ${storage.media.heroUploads.orphanedFormatted}`
+                        : ''}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Folder</dt>
+                    <dd className="font-mono text-xs text-gray-600 dark:text-gray-400">
+                      {storage.media?.heroUploads?.directory}
+                    </dd>
+                  </div>
+                </dl>
+                {(storage.media?.heroUploads?.orphanedCount ?? 0) > 0 ? (
+                  <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    Orphaned files are uploads no longer referenced by any article. They still use disk space until
+                    removed manually.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Article analytics</h2>

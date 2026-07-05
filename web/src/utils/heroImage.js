@@ -10,9 +10,13 @@ function needsProxy(url) {
   try {
     const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
     if (typeof window !== 'undefined') {
-      return u.origin !== window.location.origin && !u.hostname.includes('cloudinary.com');
+      return (
+        u.origin !== window.location.origin &&
+        !u.hostname.includes('cloudinary.com') &&
+        !u.hostname.includes('pollinations.ai')
+      );
     }
-    return !u.hostname.includes('cloudinary.com');
+    return !u.hostname.includes('cloudinary.com') && !u.hostname.includes('pollinations.ai');
   } catch {
     return false;
   }

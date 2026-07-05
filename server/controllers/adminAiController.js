@@ -13,6 +13,7 @@ import {
   getBatchPublishJob,
   MAX_BATCH_SIZE,
 } from '../services/batchArticleService.js';
+import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 
 export { buildAiDraftResponse } from '../services/aiDraftService.js';
 
@@ -35,6 +36,19 @@ export async function getAiNewsFeed(req, res, next) {
         gnews: Boolean(process.env.GNEWS_KEY),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function generateFeaturedImage(req, res, next) {
+  try {
+    const { title, category } = req.body || {};
+    if (!title?.trim()) {
+      return res.status(400).json({ message: 'title is required' });
+    }
+    const url = await resolveFeaturedImageUrl(title.trim(), category || 'World');
+    res.json({ url });
   } catch (err) {
     next(err);
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, FileText, X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { buildSourceNewsBrief } from '@/utils/sourceNewsBrief';
 
 export function SourceNewsBriefButton({ article }) {
@@ -23,32 +23,16 @@ export function SourceNewsBriefButton({ article }) {
 
   if (!brief.hasBrief) return null;
 
-  const buttonPreview =
-    brief.oneLiner.length > 72 ? `${brief.oneLiner.slice(0, 72).trim()}…` : brief.oneLiner;
-
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group mt-5 flex w-full items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-left transition hover:border-primary-300 hover:bg-primary-50/50 dark:border-gray-700 dark:bg-gray-900/60 dark:hover:border-primary-700 dark:hover:bg-primary-950/30"
+        className="mt-5 w-full rounded-xl border border-primary-200 bg-primary-50/80 px-4 py-3 text-sm font-semibold text-primary-800 transition hover:border-primary-300 hover:bg-primary-100/80 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-200 dark:hover:border-primary-700 dark:hover:bg-primary-950/60"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-primary-700 shadow-sm dark:bg-gray-800 dark:text-primary-400">
-          <FileText className="h-4 w-4" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-primary-700 dark:text-primary-400">
-            Source headline
-          </span>
-          <span className="mt-0.5 block text-sm font-medium leading-snug text-gray-800 group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white">
-            {buttonPreview}
-          </span>
-          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-            Tap for one-line summary & key points
-          </span>
-        </span>
+        Tap for one line summary of this news
       </button>
 
       {open && (

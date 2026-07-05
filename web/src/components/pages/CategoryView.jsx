@@ -7,14 +7,15 @@ import { Navbar } from '@/components/layout/NavbarNext';
 import { Footer } from '@/components/layout/FooterNext';
 import { ArticleCard } from '@/components/home/ArticleCardNext';
 import { LiveScoreboard } from '@/components/home/LiveScoreboard';
-import { WeatherLocator } from '@/components/home/WeatherLocator';
 import { WeatherAnalysisPanel } from '@/components/weather/WeatherAnalysisPanel';
+import { WeatherLocationBrowser } from '@/components/weather/WeatherLocationBrowser';
 import { CryptoMarketChart } from '@/components/crypto/CryptoMarketChart';
 import { Spinner } from '@/components/common/Spinner';
 
 export function CategoryView({ category, initialItems = null }) {
   const [items, setItems] = useState(initialItems || []);
   const [loading, setLoading] = useState(initialItems == null);
+  const [weatherCountries, setWeatherCountries] = useState([]);
 
   useEffect(() => {
     if (initialItems != null) return;
@@ -28,6 +29,14 @@ export function CategoryView({ category, initialItems = null }) {
       }
     })();
   }, [category, initialItems]);
+
+  useEffect(() => {
+    if (category !== 'Weather') return;
+    api
+      .get('/site/weather/locations', { params: { summary: '1' } })
+      .then(({ data }) => setWeatherCountries(data.countries || []))
+      .catch(() => setWeatherCountries([]));
+  }, [category]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
@@ -58,7 +67,7 @@ export function CategoryView({ category, initialItems = null }) {
         {category === 'Weather' && (
           <div className="mb-10 space-y-8">
             <WeatherAnalysisPanel />
-            <WeatherLocator compact />
+            {weatherCountries.length > 0 && <WeatherLocationBrowser initialCountries={weatherCountries} />}
           </div>
         )}
         {category === 'Crypto' && (

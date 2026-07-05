@@ -1,8 +1,18 @@
 import { generateSeoArticle } from './groqService.js';
 import { resolveHeroImage, buildHeroCaption } from './imageDiscoveryService.js';
+import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 
 export async function buildAiDraftResponse(raw, suggestedCategory) {
   const article = await generateSeoArticle(raw);
+  const category = article.category || suggestedCategory || 'World';
+
+  let featuredImage = '';
+  try {
+    featuredImage = await resolveFeaturedImageUrl(article.headline, category);
+  } catch {
+    /* resolveFeaturedImageUrl always returns a URL; guard only */
+  }
+
   const hero = await resolveHeroImage({
     title: article.headline,
     imageUrl: raw.imageUrl,
@@ -20,6 +30,7 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
     body: article.body,
     category: article.category || suggestedCategory || 'World',
     tags: article.tags || [],
+    featuredImage,
     primaryKeyword: article.primaryKeyword || '',
     seoScore: article.seoScore,
     geoScore: article.geoScore,

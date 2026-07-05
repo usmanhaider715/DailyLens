@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Radio, RefreshCw } from 'lucide-react';
+import { MapPin, Radio, RefreshCw } from 'lucide-react';
 import { api } from '@/services/api';
 import { useLiveScoresSocket } from '../../hooks/useLiveScoresSocket.js';
+import { usePinnedMatchAlerts } from '../../hooks/usePinnedMatchAlerts.js';
+import { useVisitorLocation } from '@/context/VisitorLocationContext';
 import { ScoreCard } from './ScoreWidgets.jsx';
 
 const FAST_POLL_LEAGUES = new Set(['cricket', 'soccer']);
@@ -11,6 +13,7 @@ const POLL_MS_FAST = 20000;
 const POLL_MS_DEFAULT = 30000;
 
 export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
+  const { timezone, openPrompt, location } = useVisitorLocation();
   const [activeLeague, setActiveLeague] = useState(defaultLeague);
   const [leagues, setLeagues] = useState([]);
   const [boards, setBoards] = useState([]);
@@ -115,6 +118,12 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
     return { liveGames: live, upcomingGames: upcoming, recentGames: recent };
   }, [displayGames]);
 
+  const allDisplay = useMemo(
+    () => [...liveGames, ...upcomingGames, ...recentGames],
+    [liveGames, upcomingGames, recentGames]
+  );
+  const { togglePin, isPinned, pinned } = usePinnedMatchAlerts(allDisplay);
+
   if (compact && !displayGames.length && !loading) return null;
 
   const pollLabel = FAST_POLL_LEAGUES.has(activeLeague) ? 'every 20 seconds' : 'every 30 seconds';
@@ -132,10 +141,25 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
               <h2 className="font-display text-xl font-bold text-white sm:text-2xl">Live Scoreboard</h2>
               <p className="text-xs text-primary-200/80">
                 Live, upcoming &amp; recent results · updates {pollLabel}
+                {location?.name ? ` · ${location.name}` : ''}
               </p>
             </div>
           </div>
-          <button
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={openPrompt}
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Location
+            </button>
+            {pinned.length > 0 && (
+              <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-[10px] font-bold text-amber-200">
+                {pinned.length} pinned
+              </span>
+            )}
+            <button
             type="button"
             onClick={() => load(activeLeague, { refresh: true, showLoading: true })}
             className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10"
@@ -143,6 +167,7 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </button>
+          </div>
         </div>
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
           {leagues.map((l) => (
@@ -201,13 +226,13 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
         ) : (
           <div className="mt-5 space-y-5">
             {liveGames.length > 0 && (
-              <ScoreboardRow label="Live now" games={liveGames} accent="live" />
+              <ScoreboardRow label="Live now" games={liveGames} accent="live" timezone={timezone} isPinned={isPinned} onTogglePin={togglePin} />
             )}
             {upcomingGames.length > 0 && (
-              <ScoreboardRow label="Upcoming" games={upcomingGames} accent="upcoming" />
+              <ScoreboardRow label="Upcoming" games={upcomingGames} accent="upcoming" timezone={timezone} isPinned={isPinned} onTogglePin={togglePin} />
             )}
             {recentGames.length > 0 && (
-              <ScoreboardRow label="Recent results" games={recentGames} accent="final" />
+              <ScoreboardRow label="Recent results" games={recentGames} accent="final" timezone={timezone} isPinned={isPinned} onTogglePin={togglePin} />
             )}
           </div>
         )}
@@ -221,7 +246,7 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
   );
 }
 
-function ScoreboardRow({ label, games, accent }) {
+function ScoreboardRow({ label, games, accent, timezone, isPinned, onTogglePin }) {
   const accentCls =
     accent === 'live'
       ? 'text-breaking'
@@ -234,7 +259,13 @@ function ScoreboardRow({ label, games, accent }) {
       <p className={`mb-2 text-[10px] font-bold uppercase tracking-widest ${accentCls}`}>{label}</p>
       <div className="flex gap-3 overflow-x-auto pb-1">
         {games.map((g) => (
-          <ScoreCard key={g.id} game={g} />
+          <ScoreCard
+            key={g.id}
+            game={g}
+            timezone={timezone}
+            isPinned={isPinned?.(g)}
+            onTogglePin={onTogglePin}
+          />
         ))}
       </div>
     </div>

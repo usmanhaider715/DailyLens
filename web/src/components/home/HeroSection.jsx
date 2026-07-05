@@ -10,6 +10,7 @@ import { WeatherLocator } from './WeatherLocator.jsx';
 import { FeaturedSidebar, FeaturedBottomStrip } from './FeaturedArticlesRail.jsx';
 import { stripHtml } from '../../utils/stripHtml.js';
 import { HeroImage } from '../common/HeroImage.jsx';
+import { getArticleFeaturedImage, getArticleImageAlt } from '@/utils/articleImage';
 import { CryptoMarketChart } from '../crypto/CryptoMarketChart.jsx';
 
 function FeaturedMainArticle({ article, compact = false }) {
@@ -27,8 +28,8 @@ function FeaturedMainArticle({ article, compact = false }) {
         <div className="flex flex-col sm:flex-row">
           <Link href={`/article/${article.slug}`} className="sm:w-[42%] shrink-0">
             <HeroImage
-              url={article.heroImage?.url}
-              alt={article.title || 'Featured story'}
+              url={getArticleFeaturedImage(article)}
+              alt={getArticleImageAlt(article)}
               category={article.category}
               className="h-48 w-full object-cover sm:h-full sm:min-h-[220px]"
               fetchPriority="high"
@@ -58,8 +59,8 @@ function FeaturedMainArticle({ article, compact = false }) {
     <article className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md dark:border-gray-800 dark:bg-gray-900">
       <Link href={`/article/${article.slug}`}>
         <HeroImage
-          url={article.heroImage?.url}
-          alt={article.title || 'Featured story'}
+          url={getArticleFeaturedImage(article)}
+          alt={getArticleImageAlt(article)}
           category={article.category}
           className="h-56 w-full object-cover sm:h-72 lg:h-[380px]"
           fetchPriority="high"

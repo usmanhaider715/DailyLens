@@ -4,6 +4,7 @@ import { hashUrl } from './hashUrl.js';
 import { stripHtml } from './stripHtml.js';
 import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
 import { deleteHeroUploadFile, extractUploadFilename } from './heroFileUpload.js';
+import { resolveFeaturedImageUrl } from './imageGenerator.js';
 
 export async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -60,6 +61,7 @@ export function buildArticlePayload(input, existing = null) {
     ),
     seoScore: input.seoScore ?? existing?.seoScore ?? 7,
     readTime: input.readTime ?? estimateReadTime(body),
+    featuredImage: input.featuredImage?.trim() || existing?.featuredImage || undefined,
     isBreaking: !!input.isBreaking,
     isFeatured: !!input.isFeatured,
     isPublished: input.isPublished !== false,
@@ -98,5 +100,13 @@ export function buildArticlePayload(input, existing = null) {
     }
   }
 
+  return payload;
+}
+
+/** Ensure every article has an AI featured hero for the public site. */
+export async function ensureFeaturedImage(payload) {
+  if (payload.featuredImage?.trim()) return payload;
+  if (!payload.title?.trim()) return payload;
+  payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World');
   return payload;
 }

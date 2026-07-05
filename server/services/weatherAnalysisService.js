@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { cacheGet, cacheSet } from './cacheService.js';
 import { getWeatherForecast } from './weatherService.js';
-import { resolveLocation, getWeatherRegionLabel } from '../data/weatherLocations.js';
+import { resolveLocation, getWeatherRegionLabel, weatherQueryFromPoint } from '../data/weatherLocations.js';
 import { logger } from '../utils/logger.js';
 
 function formatDayLabel(dateStr) {
@@ -23,24 +23,51 @@ function rainOutlook(pct) {
   return 'Low';
 }
 
-function buildTemplateNarrative(locationName, today, fiveDay) {
-  const rainToday = today.rainChance;
-  const rainyDays = fiveDay.filter((d) => (d.rainChance ?? 0) >= 50).length;
-  let rainBit =
-    rainToday != null && rainToday >= 50
-      ? `Rain is likely today (${rainToday}% chance).`
-      : rainToday != null
-        ? `Rain chance today is ${rainToday}% — mostly dry conditions expected.`
-        : 'Rain chances today are limited.';
-  if (rainyDays >= 3) {
-    rainBit += ` ${rainyDays} of the next 5 days show elevated rain risk — keep an umbrella handy.`;
-  } else if (rainyDays === 0) {
-    rainBit += ' The 5-day outlook stays relatively dry overall.';
+function buildBulletPoints(locationName, today, fiveDay) {
+  const bullets = [];
+  bullets.push(
+    `${locationName}: ${today.condition} with highs near ${today.high}°C and lows around ${today.low}°C.`,
+  );
+  if (today.tempNow != null) {
+    bullets.push(`Right now ${today.tempNow}°C (feels like ${today.feelsLike}°C).`);
   }
-  return `${locationName}: ${today.condition} with highs near ${today.high}° and lows around ${today.low}°. ${rainBit} Data source: Open-Meteo numerical forecast, summarized by The Daily Lens.`;
+  if (today.rainChance != null) {
+    bullets.push(
+      today.rainChance >= 50
+        ? `Rain is likely today (${today.rainChance}% chance).`
+        : `Rain chance today is ${today.rainChance}% — mostly dry conditions expected.`,
+    );
+  }
+  if (today.windKph != null) {
+    bullets.push(
+      today.humidity != null
+        ? `Wind around ${today.windKph} km/h with ${today.humidity}% humidity.`
+        : `Wind around ${today.windKph} km/h.`,
+    );
+  } else if (today.humidity != null) {
+    bullets.push(`Humidity at ${today.humidity}%.`);
+  }
+
+  const rainyDays = fiveDay.filter((d) => (d.rainChance ?? 0) >= 50);
+  if (rainyDays.length >= 3) {
+    bullets.push(`${rainyDays.length} of the next 5 days show elevated rain risk — keep an umbrella handy.`);
+  } else if (rainyDays.length === 0) {
+    bullets.push('The 5-day outlook stays relatively dry overall.');
+  } else {
+    bullets.push(`Rain most likely on ${rainyDays.map((d) => d.label).join(', ')}.`);
+  }
+
+  const warmest = fiveDay.reduce((best, d) => (d.high > best.high ? d : best), fiveDay[0]);
+  const coolest = fiveDay.reduce((best, d) => (d.low < best.low ? d : best), fiveDay[0]);
+  if (warmest && coolest && warmest.date !== coolest.date) {
+    bullets.push(`Warmest: ${warmest.label} (${warmest.high}°C). Coolest nights: ${coolest.label} (${coolest.low}°C).`);
+  }
+
+  return bullets;
 }
 
 async function groqPolishNarrative(locationName, payload) {
+  if (process.env.WEATHER_USE_GROQ !== '1') return null;
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
 
@@ -55,20 +82,25 @@ async function groqPolishNarrative(locationName, payload) {
           {
             role: 'system',
             content:
-              'You are a friendly meteorologist. Write 2 short paragraphs in plain English for the public. No markdown. No bullet lists.',
+              'You are a friendly meteorologist. Return 4-6 short bullet points in plain English. Start each line with "• ". No markdown headers.',
           },
           {
             role: 'user',
-            content: `Location: ${locationName}\nForecast JSON:\n${JSON.stringify(payload, null, 2)}\nExplain today and the next 5 days including rain timing in simple terms.`,
+            content: `Location: ${locationName}\nForecast JSON:\n${JSON.stringify(payload, null, 2)}\nSummarize today and the next 5 days including rain timing.`,
           },
         ],
       },
       {
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        timeout: 30000,
-      }
+        timeout: 8000,
+      },
     );
-    return data?.choices?.[0]?.message?.content?.trim() || null;
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    return text
+      .split('\n')
+      .map((line) => line.replace(/^[\s•\-*]+/, '').trim())
+      .filter(Boolean);
   } catch (err) {
     logger.warn('Weather Groq narrative skipped:', err.message);
     return null;
@@ -121,7 +153,7 @@ export function buildAnalysisFromForecast(weatherPayload) {
     fiveDay,
   };
 
-  const narrative = buildTemplateNarrative(name, today, fiveDay);
+  const bullets = buildBulletPoints(name, today, fiveDay);
 
   return {
     location: loc,
@@ -129,7 +161,8 @@ export function buildAnalysisFromForecast(weatherPayload) {
     today,
     fiveDay,
     table,
-    narrative,
+    bullets,
+    narrative: bullets.join(' '),
     source: 'Open-Meteo',
     analyzedAt: new Date().toISOString(),
   };
@@ -148,27 +181,29 @@ export async function getWeatherAnalysis(query = {}) {
     return { error: 'Location not found' };
   }
 
-  const cacheKey = `weather:analysis:${point.country}:${point.id}`;
+  const cacheKey = `weather:analysis:v2:${point.country}:${point.id}`;
   const cached = await cacheGet(cacheKey);
   if (cached && query.refresh !== '1') return cached;
 
   const weather = await getWeatherForecast({
-    country: point.country,
-    state: point.country === 'us' ? point.id : undefined,
-    cityId: point.country !== 'us' ? point.id : undefined,
+    ...weatherQueryFromPoint(point),
     lat: query.lat,
     lon: query.lon,
+    includeCatalog: false,
   });
 
   if (weather.error) return weather;
 
   const analysis = buildAnalysisFromForecast(weather);
-  const aiNarrative = await groqPolishNarrative(analysis.locationName, {
+  const aiBullets = await groqPolishNarrative(analysis.locationName, {
     today: analysis.today,
     fiveDay: analysis.fiveDay,
   });
-  if (aiNarrative) analysis.narrative = aiNarrative;
-  analysis.aiEnhanced = !!aiNarrative;
+  if (aiBullets?.length) {
+    analysis.bullets = aiBullets;
+    analysis.narrative = aiBullets.join(' ');
+    analysis.aiEnhanced = true;
+  }
 
   analysis.seo = {
     title: `${analysis.locationName} Weather Forecast & 5-Day Outlook`,

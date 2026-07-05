@@ -30,6 +30,7 @@ function draftToArticleInput(draft, raw) {
     category: draft.category,
     tags: draft.tags || [],
     author: 'The Daily Lens Desk',
+    featuredImage: draft.featuredImage || '',
     heroImage: draft.heroImageUrl
       ? {
           url: draft.heroImageUrl,

@@ -15,6 +15,7 @@ import { splitArticleBody } from '../../utils/articleBodyFormat.js';
 import { prepareArticleHtml } from '../../utils/stripHtml.js';
 import { SourceNewsBriefButton } from './SourceNewsBriefButton.jsx';
 import { authorSlug } from '@/utils/seoHelpers';
+import { getArticleFeaturedImage, getArticleImageAlt } from '@/utils/articleImage';
 
 function splitParagraphs(body) {
   if (!body) return [];
@@ -34,6 +35,8 @@ export function ArticleBody({ article, related }) {
     article.body
   );
   const paragraphs = htmlArticle ? [] : splitParagraphs(article.body);
+  const featuredUrl = getArticleFeaturedImage(article);
+  const featuredAlt = getArticleImageAlt(article);
 
   return (
     <>
@@ -41,8 +44,8 @@ export function ArticleBody({ article, related }) {
       <article className="mx-auto max-w-3xl px-4 pb-16 pt-8">
         <figure>
           <HeroImage
-            url={article.heroImage?.url}
-            alt={article.heroImage?.alt || article.title}
+            url={featuredUrl}
+            alt={featuredAlt}
             category={article.category}
             className="w-full rounded-2xl object-cover"
             width={1200}

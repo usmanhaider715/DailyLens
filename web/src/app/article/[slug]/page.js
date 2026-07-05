@@ -4,6 +4,7 @@ import { stripHtml } from '@/utils/stripHtml';
 import { ArticleView } from '@/components/pages/ArticleView';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { buildNewsArticleJsonLd, buildBreadcrumbJsonLd } from '@/utils/seoHelpers';
+import { getArticleFeaturedImage } from '@/utils/articleImage';
 
 export const revalidate = 120;
 
@@ -13,7 +14,8 @@ export async function generateMetadata({ params }) {
     const data = await fetchApi(`/articles/${slug}`, { revalidate: 120 });
     const article = data.article;
     const description = stripHtml(article.summary);
-    const images = article.heroImage?.url ? [{ url: article.heroImage.url }] : [];
+    const ogImage = getArticleFeaturedImage(article) || article.heroImage?.url;
+    const images = ogImage ? [{ url: ogImage }] : [];
     return {
       title: article.title,
       description,

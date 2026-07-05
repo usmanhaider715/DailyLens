@@ -1,9 +1,9 @@
 import { getSiteSettings } from '../models/SiteSettings.js';
 import { getCricketScores, findCricketGameById } from '../services/cricketScoresService.js';
 import { getLiveScores } from '../services/liveScoresService.js';
-import { getWeatherForecast, getWeatherRegions } from '../services/weatherService.js';
+import { getWeatherForecast, getWeatherRegions, getWeatherRegionCountry } from '../services/weatherService.js';
 import { getWeatherAnalysis } from '../services/weatherAnalysisService.js';
-import { getAllWeatherSeoLocations, resolveLocationBySlug } from '../data/weatherLocations.js';
+import { getAllWeatherSeoLocations, resolveLocationBySlug, weatherQueryFromPoint, getLocationCatalog, getLocationCatalogCountry } from '../data/weatherLocations.js';
 
 export async function getHomepage(req, res, next) {
   try {
@@ -104,6 +104,16 @@ export async function listWeatherRegions(req, res, next) {
   }
 }
 
+export async function getWeatherRegionCountryHandler(req, res, next) {
+  try {
+    const detail = getWeatherRegionCountry(req.params.countryId);
+    if (!detail) return res.status(404).json({ message: 'Country not found' });
+    res.json(detail);
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function getWeatherAnalysisHandler(req, res, next) {
   try {
     const analysis = await getWeatherAnalysis({
@@ -126,11 +136,7 @@ export async function getWeatherBySlug(req, res, next) {
     const point = resolveLocationBySlug(country, slug);
     if (!point) return res.status(404).json({ message: 'Weather location not found' });
 
-    const analysis = await getWeatherAnalysis({
-      country: point.country,
-      state: point.country === 'us' ? point.id : undefined,
-      cityId: point.country === 'uk' ? point.id : undefined,
-    });
+    const analysis = await getWeatherAnalysis(weatherQueryFromPoint(point));
 
     res.json({ location: point, analysis });
   } catch (e) {
@@ -140,6 +146,39 @@ export async function getWeatherBySlug(req, res, next) {
 
 export async function listWeatherSeoLocations(req, res, next) {
   try {
+    if (req.query.summary === '1') {
+      return res.json({ countries: getLocationCatalog().countries });
+    }
+    if (req.query.country) {
+      const detail = getLocationCatalogCountry(req.query.country);
+      if (!detail) return res.status(404).json({ message: 'Country not found' });
+      let locations = [];
+      if (detail.type === 'states') {
+        locations = (detail.states || []).map((s) => ({
+          country: 'us',
+          slug: s.id.toLowerCase(),
+          label: s.label,
+          name: s.label,
+        }));
+      } else if (detail.type === 'regions') {
+        locations = (detail.regions || []).flatMap((r) =>
+          (r.cities || []).map((c) => ({
+            country: 'uk',
+            slug: c.id,
+            label: `${c.name}, ${r.name}`,
+            name: `${c.name}, ${r.name}`,
+          })),
+        );
+      } else {
+        locations = (detail.cities || []).map((c) => ({
+          country: detail.id,
+          slug: c.slug || c.id,
+          label: `${c.name}, ${detail.label}`,
+          name: `${c.name}, ${detail.label}`,
+        }));
+      }
+      return res.json({ country: detail, locations });
+    }
     res.json({ locations: getAllWeatherSeoLocations() });
   } catch (e) {
     next(e);

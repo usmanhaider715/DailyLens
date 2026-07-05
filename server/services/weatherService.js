@@ -4,6 +4,7 @@ import {
   getLocationCatalog,
   resolveLocation,
   findNearestLocation,
+  getLocationCatalogCountry,
 } from '../data/weatherLocations.js';
 
 const WMO_LABELS = {
@@ -87,23 +88,37 @@ export async function getWeatherForecast(query = {}) {
 
   const cacheKey = `weather:point:${point.country}:${point.id}:${Math.round(point.lat * 10)}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    if (query.includeCatalog === false && cached.catalog) {
+      const { catalog: _c, ...rest } = cached;
+      return rest;
+    }
+    return cached;
+  }
 
   const forecast = await fetchPointForecast(point);
   const payload = {
     mode: 'single',
     location: point,
     forecast,
-    catalog: getLocationCatalog(),
+    catalog: query.includeCatalog === false ? undefined : getLocationCatalog(),
     updatedAt: new Date().toISOString(),
   };
 
-  await cacheSet(cacheKey, payload, 1800);
+  await cacheSet(cacheKey, { ...payload, catalog: getLocationCatalog() }, 1800);
+  if (query.includeCatalog === false) {
+    const { catalog: _c, ...rest } = payload;
+    return rest;
+  }
   return payload;
 }
 
 export function getWeatherRegions() {
   return getLocationCatalog();
+}
+
+export function getWeatherRegionCountry(countryId) {
+  return getLocationCatalogCountry(countryId);
 }
 
 export { getLocationCatalog, findNearestLocation };

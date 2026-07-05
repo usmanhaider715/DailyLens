@@ -1,3 +1,15 @@
+import { findUsCityBySlug, US_MAJOR_CITIES } from './weatherCitiesUs.js';
+import {
+  getWorldCountriesSummary,
+  getWorldCountryDetail,
+  findWorldCity,
+  resolveWorldLocationBySlug,
+  getAllWorldSeoLocations,
+  getAllWorldPoints,
+  isWorldCountry,
+  getWorldCountryLabel,
+} from './worldWeatherIndex.js';
+
 /** US state capitals + UK cities grouped for forecast dropdowns. */
 export const US_STATES = [
   { code: 'AL', name: 'Alabama', capital: 'Montgomery', lat: 32.3792, lon: -86.3077 },
@@ -73,6 +85,40 @@ export const UK_REGIONS = [
       { id: 'oxford', name: 'Oxford', lat: 51.752, lon: -1.2577 },
       { id: 'cambridge', name: 'Cambridge', lat: 52.2053, lon: 0.1218 },
       { id: 'york', name: 'York', lat: 53.96, lon: -1.0873 },
+      { id: 'leicester', name: 'Leicester', lat: 52.6369, lon: -1.1398 },
+      { id: 'coventry', name: 'Coventry', lat: 52.4068, lon: -1.5197 },
+      { id: 'hull', name: 'Hull', lat: 53.7457, lon: -0.3367 },
+      { id: 'stoke', name: 'Stoke-on-Trent', lat: 53.0027, lon: -2.1794 },
+      { id: 'derby', name: 'Derby', lat: 52.9225, lon: -1.4746 },
+      { id: 'sunderland', name: 'Sunderland', lat: 54.9069, lon: -1.3838 },
+      { id: 'bolton', name: 'Bolton', lat: 53.5785, lon: -2.4299 },
+      { id: 'bournemouth', name: 'Bournemouth', lat: 50.7192, lon: -1.8808 },
+      { id: 'reading', name: 'Reading', lat: 51.4543, lon: -0.9781 },
+      { id: 'northampton', name: 'Northampton', lat: 52.2405, lon: -0.9027 },
+      { id: 'luton', name: 'Luton', lat: 51.8787, lon: -0.4200 },
+      { id: 'preston', name: 'Preston', lat: 53.7632, lon: -2.7031 },
+      { id: 'milton_keynes', name: 'Milton Keynes', lat: 52.0406, lon: -0.7594 },
+      { id: 'middlesbrough', name: 'Middlesbrough', lat: 54.5742, lon: -1.2350 },
+      { id: 'huddersfield', name: 'Huddersfield', lat: 53.6458, lon: -1.7850 },
+      { id: 'ipswich', name: 'Ipswich', lat: 52.0567, lon: 1.1482 },
+      { id: 'norwich', name: 'Norwich', lat: 52.6309, lon: 1.2974 },
+      { id: 'exeter', name: 'Exeter', lat: 50.7184, lon: -3.5339 },
+      { id: 'bath', name: 'Bath', lat: 51.3811, lon: -2.3590 },
+      { id: 'canterbury', name: 'Canterbury', lat: 51.2802, lon: 1.0789 },
+      { id: 'chester', name: 'Chester', lat: 53.1934, lon: -2.8931 },
+      { id: 'durham', name: 'Durham', lat: 54.7761, lon: -1.5733 },
+      { id: 'lincoln', name: 'Lincoln', lat: 53.2307, lon: -0.5406 },
+      { id: 'wolverhampton', name: 'Wolverhampton', lat: 52.5869, lon: -2.1288 },
+      { id: 'portsmouth', name: 'Portsmouth', lat: 50.8198, lon: -1.0880 },
+      { id: 'peterborough', name: 'Peterborough', lat: 52.5695, lon: -0.2405 },
+      { id: 'swindon', name: 'Swindon', lat: 51.5558, lon: -1.7797 },
+      { id: 'gloucester', name: 'Gloucester', lat: 51.8642, lon: -2.2382 },
+      { id: 'worcester', name: 'Worcester', lat: 52.1936, lon: -2.2216 },
+      { id: 'carlisle', name: 'Carlisle', lat: 54.8951, lon: -2.9382 },
+      { id: 'blackpool', name: 'Blackpool', lat: 53.8175, lon: -3.0357 },
+      { id: 'torquay', name: 'Torquay', lat: 50.4619, lon: -3.5253 },
+      { id: 'colchester', name: 'Colchester', lat: 51.8892, lon: 0.9042 },
+      { id: 'guildford', name: 'Guildford', lat: 51.2362, lon: -0.5704 },
     ],
   },
   {
@@ -84,6 +130,11 @@ export const UK_REGIONS = [
       { id: 'aberdeen', name: 'Aberdeen', lat: 57.1497, lon: -2.0943 },
       { id: 'dundee', name: 'Dundee', lat: 56.462, lon: -2.9707 },
       { id: 'inverness', name: 'Inverness', lat: 57.4778, lon: -4.2247 },
+      { id: 'stirling', name: 'Stirling', lat: 56.1165, lon: -3.9369 },
+      { id: 'perth', name: 'Perth', lat: 56.3950, lon: -3.4308 },
+      { id: 'ayr', name: 'Ayr', lat: 55.4586, lon: -4.6292 },
+      { id: 'paisley', name: 'Paisley', lat: 55.8456, lon: -4.4239 },
+      { id: 'falkirk', name: 'Falkirk', lat: 56.0019, lon: -3.7839 },
     ],
   },
   {
@@ -94,6 +145,10 @@ export const UK_REGIONS = [
       { id: 'swansea', name: 'Swansea', lat: 51.6214, lon: -3.9436 },
       { id: 'newport', name: 'Newport', lat: 51.5842, lon: -2.9977 },
       { id: 'wrexham', name: 'Wrexham', lat: 53.046, lon: -2.993 },
+      { id: 'bangor', name: 'Bangor', lat: 53.2274, lon: -4.1293 },
+      { id: 'aberystwyth', name: 'Aberystwyth', lat: 52.4153, lon: -4.0829 },
+      { id: 'llanelli', name: 'Llanelli', lat: 51.6808, lon: -4.1614 },
+      { id: 'rhyl', name: 'Rhyl', lat: 53.3191, lon: -3.4912 },
     ],
   },
   {
@@ -103,9 +158,21 @@ export const UK_REGIONS = [
       { id: 'belfast', name: 'Belfast', lat: 54.5973, lon: -5.9301 },
       { id: 'derry', name: 'Derry', lat: 54.9966, lon: -7.3086 },
       { id: 'lisburn', name: 'Lisburn', lat: 54.5162, lon: -6.058 },
+      { id: 'newry', name: 'Newry', lat: 54.1751, lon: -6.3402 },
+      { id: 'armagh', name: 'Armagh', lat: 54.3503, lon: -6.6528 },
+      { id: 'omagh', name: 'Omagh', lat: 54.5977, lon: -7.3099 },
     ],
   },
 ];
+
+export function weatherQueryFromPoint(point) {
+  if (!point) return {};
+  if (point.country === 'us') {
+    if (point.id?.length === 2) return { country: 'us', state: point.id };
+    return { country: 'us', cityId: point.id };
+  }
+  return { country: point.country, cityId: point.id };
+}
 
 /** Major Asian cities for forecasts and geo-location snapping. */
 export const ASIA_COUNTRIES = [
@@ -257,57 +324,75 @@ export function isAsiaCountry(countryId) {
 export function getWeatherRegionLabel(countryId) {
   if (countryId === 'us') return 'US weather';
   if (countryId === 'uk') return 'UK weather';
-  const asia = ASIA_COUNTRIES.find((c) => c.id === countryId);
-  return asia ? `${asia.name} weather` : 'weather';
+  const world = getWorldCountryLabel(countryId);
+  return world ? `${world} weather` : 'weather';
 }
 
-export function getLocationCatalog() {
+function usCatalogEntry() {
   return {
-    countries: [
-      {
-        id: 'us',
-        label: 'United States',
-        type: 'states',
-        states: US_STATES.map((s) => ({
-          id: s.code,
-          name: s.name,
-          label: `${s.name} (${s.capital})`,
-          lat: s.lat,
-          lon: s.lon,
-          timezone: 'America/New_York',
-        })),
-      },
-      {
-        id: 'uk',
-        label: 'United Kingdom',
-        type: 'regions',
-        regions: UK_REGIONS.map((r) => ({
-          id: r.id,
-          name: r.name,
-          cities: r.cities.map((c) => ({
-            id: `${r.id}-${c.id}`,
-            name: c.name,
-            lat: c.lat,
-            lon: c.lon,
-            timezone: 'Europe/London',
-          })),
-        })),
-      },
-      ...ASIA_COUNTRIES.map((ac) => ({
-        id: ac.id,
-        label: ac.name,
-        type: 'cities',
-        timezone: ac.timezone,
-        cities: ac.cities.map((c) => ({
-          id: `${ac.id}-${c.id}`,
-          name: c.name,
-          lat: c.lat,
-          lon: c.lon,
-          timezone: ac.timezone,
-        })),
-      })),
-    ],
+    id: 'us',
+    label: 'United States',
+    type: 'states',
+    cityCount: US_STATES.length + US_MAJOR_CITIES.length,
+    states: US_STATES.map((s) => ({
+      id: s.code,
+      name: s.name,
+      label: `${s.name} (${s.capital})`,
+      lat: s.lat,
+      lon: s.lon,
+      timezone: 'America/New_York',
+    })),
   };
+}
+
+function ukCatalogEntry() {
+  const cityCount = UK_REGIONS.reduce((n, r) => n + r.cities.length, 0);
+  return {
+    id: 'uk',
+    label: 'United Kingdom',
+    type: 'regions',
+    cityCount,
+    regions: UK_REGIONS.map((r) => ({
+      id: r.id,
+      name: r.name,
+      cities: r.cities.map((c) => ({
+        id: `${r.id}-${c.id}`,
+        name: c.name,
+        lat: c.lat,
+        lon: c.lon,
+        timezone: 'Europe/London',
+      })),
+    })),
+  };
+}
+
+/** Lightweight country list for dropdowns (no full city lists). */
+export function getLocationCatalog() {
+  const world = getWorldCountriesSummary();
+  const countries = [
+    {
+      id: 'us',
+      label: 'United States',
+      type: 'states',
+      cityCount: US_STATES.length + US_MAJOR_CITIES.length,
+    },
+    {
+      id: 'uk',
+      label: 'United Kingdom',
+      type: 'regions',
+      cityCount: UK_REGIONS.reduce((n, r) => n + r.cities.length, 0),
+    },
+    ...world.sort((a, b) => a.label.localeCompare(b.label)),
+  ];
+  return { countries };
+}
+
+/** Full subcategories for one country (states, regions, or cities). */
+export function getLocationCatalogCountry(countryId) {
+  const id = (countryId || '').toLowerCase();
+  if (id === 'us') return usCatalogEntry();
+  if (id === 'uk') return ukCatalogEntry();
+  return getWorldCountryDetail(id);
 }
 
 export function findNearestLocation(lat, lon) {
@@ -329,6 +414,21 @@ export function findNearestLocation(lat, lon) {
     }
   }
 
+  for (const c of US_MAJOR_CITIES) {
+    const d = haversineKm(lat, lon, c.lat, c.lon);
+    if (d < bestDist) {
+      bestDist = d;
+      best = {
+        country: 'us',
+        id: c.slug,
+        name: `${c.name}, ${c.stateName}`,
+        lat: c.lat,
+        lon: c.lon,
+        timezone: c.timezone,
+      };
+    }
+  }
+
   for (const region of UK_REGIONS) {
     for (const c of region.cities) {
       const d = haversineKm(lat, lon, c.lat, c.lon);
@@ -346,20 +446,11 @@ export function findNearestLocation(lat, lon) {
     }
   }
 
-  for (const ac of ASIA_COUNTRIES) {
-    for (const c of ac.cities) {
-      const d = haversineKm(lat, lon, c.lat, c.lon);
-      if (d < bestDist) {
-        bestDist = d;
-        best = {
-          country: ac.id,
-          id: `${ac.id}-${c.id}`,
-          name: `${c.name}, ${ac.name}`,
-          lat: c.lat,
-          lon: c.lon,
-          timezone: ac.timezone,
-        };
-      }
+  for (const p of getAllWorldPoints()) {
+    const d = haversineKm(lat, lon, p.lat, p.lon);
+    if (d < bestDist) {
+      bestDist = d;
+      best = p;
     }
   }
 
@@ -376,6 +467,14 @@ export function getAllWeatherSeoLocations() {
     name: `${s.capital}, ${s.name}`,
     label: `${s.name} (${s.capital})`,
   }));
+  const usCities = US_MAJOR_CITIES.map((c) => ({
+    country: 'us',
+    slug: c.slug,
+    state: c.stateCode,
+    cityId: c.slug,
+    name: `${c.name}, ${c.stateName}`,
+    label: `${c.name}, ${c.stateName}`,
+  }));
   const uk = UK_REGIONS.flatMap((r) =>
     r.cities.map((c) => ({
       country: 'uk',
@@ -386,32 +485,24 @@ export function getAllWeatherSeoLocations() {
       label: `${c.name}, ${r.name}`,
     }))
   );
-  const asia = ASIA_COUNTRIES.flatMap((ac) =>
-    ac.cities.map((c) => ({
-      country: ac.id,
-      slug: `${ac.id}-${c.id}`,
-      state: null,
-      cityId: `${ac.id}-${c.id}`,
-      name: `${c.name}, ${ac.name}`,
-      label: `${c.name}, ${ac.name}`,
-    }))
-  );
-  return [...us, ...uk, ...asia];
+  const world = getAllWorldSeoLocations();
+  return [...us, ...usCities, ...uk, ...world];
 }
 
 export function resolveLocationBySlug(country, slug) {
   const c = (country || '').toLowerCase();
   const s = (slug || '').toLowerCase();
   if (c === 'us') {
-    const code = s.toUpperCase();
-    return resolveLocation({ country: 'us', state: code });
+    const city = findUsCityBySlug(s);
+    if (city) return resolveLocation({ country: 'us', cityId: city.slug });
+    if (s.length === 2) return resolveLocation({ country: 'us', state: s.toUpperCase() });
   }
   if (c === 'uk') {
     return resolveLocation({ country: 'uk', cityId: slug });
   }
-  const asia = ASIA_COUNTRIES.find((x) => x.id === c);
-  if (asia) {
-    return resolveLocation({ country: asia.id, cityId: slug });
+  if (isWorldCountry(c)) {
+    const point = resolveWorldLocationBySlug(c, s);
+    if (point) return point;
   }
   return null;
 }
@@ -419,6 +510,19 @@ export function resolveLocationBySlug(country, slug) {
 export function resolveLocation({ country, state, cityId, lat, lon }) {
   if (lat != null && lon != null) {
     return findNearestLocation(Number(lat), Number(lon));
+  }
+  if (country === 'us' && cityId) {
+    const city = findUsCityBySlug(cityId);
+    if (city) {
+      return {
+        country: 'us',
+        id: city.slug,
+        name: `${city.name}, ${city.stateName}`,
+        lat: city.lat,
+        lon: city.lon,
+        timezone: city.timezone,
+      };
+    }
   }
   if (country === 'us' && state) {
     const s = US_STATES.find((x) => x.code === state);
@@ -463,6 +567,10 @@ export function resolveLocation({ country, state, cityId, lat, lon }) {
         timezone: asia.timezone,
       };
     }
+  }
+  if (isWorldCountry(country) && cityId) {
+    const point = findWorldCity(country, cityId);
+    if (point) return point;
   }
   return US_STATES[0]
     ? {

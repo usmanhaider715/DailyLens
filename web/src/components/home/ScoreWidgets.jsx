@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { Bell, BellOff } from 'lucide-react';
+import { formatMatchTimeLocal } from '@/utils/matchTime';
 
 export function TeamRow({ team, highlight, useFullName, scoreClassName = 'text-2xl' }) {
   if (!team) return null;
@@ -27,13 +29,14 @@ export function TeamRow({ team, highlight, useFullName, scoreClassName = 'text-2
   );
 }
 
-export function ScoreCard({ game, size = 'default' }) {
+export function ScoreCard({ game, size = 'default', timezone, isPinned, onTogglePin }) {
   const live = game.isLive;
   const final = game.isFinal;
   const isCricket = game.leagueId === 'cricket';
   const isSoccer = game.leagueId === 'soccer';
   const wideCard = isCricket || isSoccer;
   const isHero = size === 'hero';
+  const localStart = game.startsAt || game.eventDate;
 
   const className = `group relative flex shrink-0 flex-col rounded-xl border transition ${
     isHero
@@ -51,6 +54,25 @@ export function ScoreCard({ game, size = 'default' }) {
 
   const inner = (
     <>
+      {onTogglePin && !isHero && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePin(game);
+          }}
+          title={isPinned ? 'Unpin score alerts' : 'Pin for live score notifications'}
+          className={`absolute left-3 top-3 z-10 rounded-full p-1.5 transition ${
+            isPinned
+              ? 'bg-amber-400/90 text-amber-950 shadow'
+              : 'bg-black/30 text-white/70 opacity-0 hover:bg-black/50 group-hover:opacity-100'
+          }`}
+          aria-label={isPinned ? 'Unpin match' : 'Pin match for notifications'}
+        >
+          {isPinned ? <Bell className="h-3.5 w-3.5 fill-current" /> : <BellOff className="h-3.5 w-3.5" />}
+        </button>
+      )}
       {live && (
         <span
           className={`absolute flex items-center gap-1 rounded-full bg-breaking font-bold uppercase tracking-wider text-white shadow animate-pulseFlash ${
@@ -81,13 +103,14 @@ export function ScoreCard({ game, size = 'default' }) {
       {isCricket && game.venue && (
         <p className={`mb-2 truncate text-white/40 ${isHero ? 'text-sm' : 'text-[10px]'}`}>{game.venue}</p>
       )}
-      {game.status === 'pre' && game.startsAt && (
+      {localStart && !live && (
         <p
-          className={`mb-3 rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-center font-medium text-sky-100 ${
-            isHero ? 'text-sm' : 'text-xs'
+          className={`mb-3 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-center text-white/70 ${
+            isHero ? 'text-sm' : 'text-[10px]'
           }`}
         >
-          {game.statusText}
+          {game.status === 'pre' && game.statusText ? `${game.statusText} · ` : ''}
+          {formatMatchTimeLocal(localStart, timezone)}
         </p>
       )}
       <div className={`space-y-2 ${isHero ? 'space-y-4 sm:space-y-5' : ''}`}>

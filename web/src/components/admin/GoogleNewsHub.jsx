@@ -6,9 +6,9 @@ import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { ArticleDraftPreviewModal } from './ArticleDraftPreviewModal.jsx';
-import { BatchPublishProgress } from './BatchPublishProgress.jsx';
+import BatchArticleReviewPanel from './BatchArticleReviewPanel.jsx';
 import { draftToEditorForm, draftToPublishPayload, saveAdminDraft } from '@/utils/adminDraft';
-import { MAX_BATCH, runBatchPublish } from '@/utils/batchPublish';
+import { MAX_BATCH } from '@/utils/batchPublish';
 import { Sparkles, TrendingUp, Newspaper, Search } from 'lucide-react';
 
 const CATEGORIES = [
@@ -126,8 +126,8 @@ export function GoogleNewsHub() {
   const [searching, setSearching] = useState(false);
   const [busyKey, setBusyKey] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
-  const [batchJobId, setBatchJobId] = useState(null);
-  const [batchBusy, setBatchBusy] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewItems, setReviewItems] = useState([]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -278,7 +278,7 @@ export function GoogleNewsHub() {
 
   const selectedStories = visibleStories.filter((s) => selected.has(storyKey(s)));
 
-  const publishSelected = async () => {
+  const publishSelected = () => {
     if (selectedStories.length === 0) {
       toast.error('Select at least one story');
       return;
@@ -286,22 +286,9 @@ export function GoogleNewsHub() {
     if (selectedStories.length === 1) {
       return handleStoryWrite(selectedStories[0], activeCategory);
     }
-    setBatchBusy(true);
-    try {
-      const jobId = await runBatchPublish(selectedStories);
-      setBatchJobId(jobId);
-      toast.success(`Batch started — ${selectedStories.length} articles`);
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Could not start batch');
-    } finally {
-      setBatchBusy(false);
-    }
-  };
-
-  const handleBatchComplete = (job) => {
-    setBatchJobId(null);
+    setReviewItems(selectedStories);
+    setReviewOpen(true);
     setSelected(new Set());
-    if (job?.published > 0) router.push('/admin/articles');
   };
 
   const bulkMode = mainTab === 'news24h' || mainTab === 'search';
@@ -351,10 +338,6 @@ export function GoogleNewsHub() {
         ))}
       </div>
 
-      {batchJobId ? (
-        <BatchPublishProgress jobId={batchJobId} onComplete={handleBatchComplete} />
-      ) : null}
-
       {mainTab === 'news24h' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -400,7 +383,7 @@ export function GoogleNewsHub() {
                           ? clearSelection()
                           : selectAllVisible()
                       }
-                      disabled={batchBusy || !!batchJobId}
+                      disabled={reviewOpen}
                       className="rounded border-gray-300"
                     />
                     Select up to {MAX_BATCH}
@@ -516,7 +499,7 @@ export function GoogleNewsHub() {
         </div>
       )}
 
-      {bulkMode && selected.size > 0 && !batchJobId ? (
+      {bulkMode && selected.size > 0 ? (
         <div className="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white px-5 py-4 shadow-lg dark:border-primary-800 dark:bg-gray-900">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
             {selected.size} selected (max {MAX_BATCH})
@@ -525,7 +508,6 @@ export function GoogleNewsHub() {
             <button
               type="button"
               onClick={clearSelection}
-              disabled={batchBusy}
               className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               Cancel
@@ -533,14 +515,25 @@ export function GoogleNewsHub() {
             <button
               type="button"
               onClick={publishSelected}
-              disabled={batchBusy}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
             >
-              {batchBusy ? 'Starting…' : `Publish ${selected.size} articles`}
+              {selected.size === 1
+                ? 'Generate draft for review'
+                : `Generate ${selected.size} drafts for review`}
             </button>
           </div>
         </div>
       ) : null}
+
+      <BatchArticleReviewPanel
+        open={reviewOpen}
+        items={reviewItems}
+        onClose={() => {
+          setReviewOpen(false);
+          setReviewItems([]);
+        }}
+        onPublished={() => router.push('/admin/articles')}
+      />
 
       <ArticleDraftPreviewModal
         open={previewOpen}

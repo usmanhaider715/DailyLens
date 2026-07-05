@@ -7,6 +7,7 @@ const router = Router();
 router.get('/homepage', site.getHomepage);
 router.get('/weather', site.getWeather);
 router.get('/weather/regions', site.listWeatherRegions);
+router.get('/weather/regions/:countryId', site.getWeatherRegionCountryHandler);
 router.get('/weather/analysis', site.getWeatherAnalysisHandler);
 router.get('/weather/locations', site.listWeatherSeoLocations);
 router.get('/weather/:country/:slug', site.getWeatherBySlug);

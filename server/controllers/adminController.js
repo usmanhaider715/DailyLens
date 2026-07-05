@@ -5,8 +5,9 @@ import { NewsSource } from '../models/NewsSource.js';
 import { emitBreakingNews, getLiveTrafficStats } from '../services/socketService.js';
 import { runManualFetch as runManualFetchJob } from '../jobs/newsFetcher.js';
 import { invalidateArticleCaches } from './articleController.js';
-import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.js';
+import { buildArticlePayload, ensureUniqueSlug, ensureFeaturedImage } from '../utils/articleHelpers.js';
 import { cleanupHeroUpload, cleanupReplacedHeroUpload } from '../utils/heroUploadCleanup.js';
+import { getStorageStats } from '../utils/storageStats.js';
 import { slugify } from '../utils/slugify.js';
 import { Category } from '../models/Category.js';
 
@@ -38,6 +39,7 @@ export async function getAdminArticle(req, res, next) {
 export async function createArticle(req, res, next) {
   try {
     const payload = buildArticlePayload(req.body);
+    await ensureFeaturedImage(payload);
     payload.slug = await ensureUniqueSlug(payload.slug || slugify(payload.title));
     const doc = await Article.create(payload);
     await Category.updateOne({ name: doc.category }, { $inc: { articleCount: 1 } });
@@ -63,6 +65,7 @@ export async function updateArticle(req, res, next) {
     if (!existing) return res.status(404).json({ message: 'Article not found' });
 
     const payload = buildArticlePayload(req.body, existing);
+    await ensureFeaturedImage(payload);
     if (req.body.slug && req.body.slug !== existing.slug) {
       payload.slug = await ensureUniqueSlug(slugify(req.body.slug));
     }
@@ -309,12 +312,15 @@ export async function adminAnalytics(req, res, next) {
       { $limit: 8 },
     ]);
 
+    const storage = await getStorageStats();
+
     res.json({
       totalViews,
       articlesToday,
       trending,
       topCategories,
       liveTraffic: getLiveTrafficStats(),
+      storage,
     });
   } catch (e) {
     next(e);

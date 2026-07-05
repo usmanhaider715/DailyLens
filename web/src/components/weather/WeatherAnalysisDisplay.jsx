@@ -84,9 +84,18 @@ export function WeatherAnalysisDisplay({ analysis, country, slug }) {
 
       <div className="prose prose-lg mt-8 max-w-none dark:prose-invert">
         <h2 className="font-display text-xl font-bold">Easy-to-understand outlook</h2>
-        {analysis.narrative?.split('\n\n').map((block, i) => (
-          <p key={i}>{block}</p>
-        ))}
+        {analysis.bullets?.length > 0 ? (
+          <ul className="not-prose mt-3 space-y-2">
+            {analysis.bullets.map((item, i) => (
+              <li key={i} className="flex gap-2 text-base leading-relaxed text-gray-700 dark:text-gray-300">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-600 dark:bg-cyan-400" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          analysis.narrative?.split('\n\n').map((block, i) => <p key={i}>{block}</p>)
+        )}
       </div>
 
       <p className="mt-8 text-xs text-gray-500">

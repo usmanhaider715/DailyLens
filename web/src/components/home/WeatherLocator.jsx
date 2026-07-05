@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { api } from '@/services/api';
+import { useVisitorLocation } from '@/context/VisitorLocationContext';
 import { inferUkRegionIdFromCityComposite } from '@/utils/weatherRegionUtils';
+import { useWeatherCountryDetail } from '@/hooks/useWeatherCountryDetail';
 
 export function WeatherLocator({ compact = false }) {
+  const { weatherParams, setManualRegion, openPrompt, location: savedLoc, ready: locReady } = useVisitorLocation();
   const [data, setData] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [country, setCountry] = useState('');
@@ -16,10 +19,13 @@ export function WeatherLocator({ compact = false }) {
   const [geoDenied, setGeoDenied] = useState(false);
   const [pinnedLocation, setPinnedLocation] = useState(false);
 
-  const selectedCountry = useMemo(
-    () => catalog?.countries?.find((c) => c.id === country),
-    [catalog, country],
-  );
+  const { detail: countryDetail } = useWeatherCountryDetail(country || null);
+
+  const selectedCountry = useMemo(() => {
+    const summary = catalog?.countries?.find((c) => c.id === country);
+    if (!summary) return null;
+    return countryDetail?.id === country ? { ...summary, ...countryDetail } : summary;
+  }, [catalog, country, countryDetail]);
   const ukRegionData = selectedCountry?.type === 'regions'
     ? selectedCountry.regions?.find((r) => r.id === region)
     : null;
@@ -51,19 +57,30 @@ export function WeatherLocator({ compact = false }) {
     try {
       const { data: w } = await api.get('/site/weather', { params });
       setData(w);
-      if (w.catalog) setCatalog(w.catalog);
-      if (w.location) syncFormFromLocation(w.location, w.catalog);
-      else if (w.catalog && !params.lat) setCountry('');
+      if (w.location) syncFormFromLocation(w.location, catalog);
+      else if (!params.lat) setCountry('');
     } finally {
       setLoading(false);
     }
-  }, [syncFormFromLocation]);
+  }, [syncFormFromLocation, catalog]);
 
   useEffect(() => {
+    api.get('/site/weather/regions').then(({ data }) => setCatalog(data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!locReady) return undefined;
     let cancelled = false;
 
     async function init() {
       try {
+        if (weatherParams) {
+          setGeoDenied(savedLoc?.source !== 'geo');
+          setPinnedLocation(savedLoc?.source === 'manual');
+          await load(weatherParams);
+          return;
+        }
+
         const { data: hp } = await api.get('/site/homepage');
         if (cancelled || hp.heroMode !== 'weather') return;
 
@@ -114,24 +131,33 @@ export function WeatherLocator({ compact = false }) {
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [load, locReady, weatherParams, savedLoc?.source]);
 
-  const onCountry = (c) => {
+  const onCountry = async (c) => {
     setCountry(c);
     setState('');
     setRegion('');
     setCityId('');
-    const entry = catalog?.countries?.find((x) => x.id === c);
-    if (entry?.type === 'cities' && entry.cities?.[0]) {
-      const first = entry.cities[0].id;
-      setCityId(first);
-      load({ country: c, cityId: first });
+    if (!c) return;
+    try {
+      const { data: detail } = await api.get(`/site/weather/regions/${c}`);
+      if (detail.type === 'cities' && detail.cities?.[0]) {
+        const first = detail.cities[0].id;
+        setCityId(first);
+        load({ country: c, cityId: first });
+      }
+    } catch {
+      /* user can pick subcategory once detail loads */
     }
   };
 
   const onUsState = (code) => {
     setState(code);
-    if (code) load({ country: 'us', state: code });
+    if (code) {
+      const st = selectedCountry?.states?.find((s) => s.id === code);
+      setManualRegion({ country: 'us', state: code, name: st?.label || code });
+      load({ country: 'us', state: code });
+    }
   };
 
   const onUkCity = (rId, compositeCityId) => {
@@ -140,9 +166,13 @@ export function WeatherLocator({ compact = false }) {
     if (compositeCityId) load({ country: 'uk', cityId: compositeCityId });
   };
 
-  const onAsiaCity = (compositeCityId) => {
+  const onWorldCity = (compositeCityId) => {
     setCityId(compositeCityId);
-    if (compositeCityId && country) load({ country, cityId: compositeCityId });
+    if (compositeCityId && country) {
+      const city = selectedCountry?.cities?.find((c) => c.id === compositeCityId);
+      setManualRegion({ country, cityId: compositeCityId, name: city?.name || country });
+      load({ country, cityId: compositeCityId });
+    }
   };
 
   const f = data?.forecast;
@@ -156,7 +186,10 @@ export function WeatherLocator({ compact = false }) {
     >
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <MapPin className="h-4 w-4 shrink-0 text-sky-600" />
-        <span className="font-semibold text-gray-900 dark:text-white">{f?.name || 'Your location'}</span>
+        <span className="font-semibold text-gray-900 dark:text-white">{f?.name || savedLoc?.name || 'Your location'}</span>
+        <button type="button" onClick={openPrompt} className="text-xs font-medium text-sky-700 underline dark:text-sky-300">
+          Change location
+        </button>
         {pinnedLocation && (
           <span className="text-xs text-sky-700 dark:text-sky-300">(default region — change below)</span>
         )}
@@ -238,7 +271,7 @@ export function WeatherLocator({ compact = false }) {
         {selectedCountry?.type === 'cities' && (
           <select
             value={cityId}
-            onChange={(e) => onAsiaCity(e.target.value)}
+            onChange={(e) => onWorldCity(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 sm:col-span-2"
             aria-label="City"
           >

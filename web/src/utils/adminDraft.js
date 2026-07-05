@@ -25,6 +25,7 @@ export function draftToPublishPayload(draft, meta = {}) {
     category: draft.category,
     tags: draft.tags || [],
     author: 'The Daily Lens Desk',
+    featuredImage: draft.featuredImage || '',
     heroImage: draft.heroImageUrl
       ? {
           url: draft.heroImageUrl,
@@ -54,10 +55,12 @@ export function draftToEditorForm(draft) {
     body: draft.body || '',
     category: draft.category || 'World',
     tags: (draft.tags || []).join(', '),
+    featuredImage: draft.featuredImage || '',
     heroImageUrl: draft.heroImageUrl || '',
     heroImageAlt: draft.heroImageAlt || draft.title || '',
     heroImageCredit: draft.heroImageCredit || '',
     heroImageCreditUrl: draft.heroImageCreditUrl || '',
+    heroImageSource: draft.heroImageSource || '',
     isBreaking: !!draft.isBreaking,
     seoScore: draft.seoScore ?? 7,
     readTime: draft.readTime,

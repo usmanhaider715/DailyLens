@@ -7,6 +7,7 @@ import { Spinner } from '../common/Spinner.jsx';
 import { ScoreCard } from '../home/ScoreWidgets.jsx';
 import { WeatherForecastPanel } from '../home/WeatherForecastPanel.jsx';
 import { inferUkRegionIdFromCityComposite } from '@/utils/weatherRegionUtils';
+import { useWeatherCountryDetail } from '@/hooks/useWeatherCountryDetail';
 
 function normalizeLoadedSettings(raw) {
   const s = { ...raw };
@@ -117,10 +118,13 @@ export function HomepageSettings() {
     const cid = settings.homepageWeatherCityId || '';
     const inferred =
       settings.homepageWeatherCountry === 'uk'
-        ? inferUkRegionIdFromCityComposite(locationCatalog, cid)
+        ? inferUkRegionIdFromCityComposite(
+            { countries: uk ? [{ id: 'uk', regions: uk.regions }] : [] },
+            cid,
+          )
         : '';
     setUkRmaRegion(inferred);
-  }, [settings, locationCatalog]);
+  }, [settings, uk]);
 
   /** Keep preview synced when editors change preset fields while on weather hero */
   useEffect(() => {
@@ -150,8 +154,8 @@ export function HomepageSettings() {
   const selectedMatch = matches.find((m) => m.id === settings?.homepageLiveMatchId);
   const heroMode = settings?.homepageHeroMode || 'featured';
 
-  const us = locationCatalog?.countries?.find((c) => c.id === 'us');
-  const uk = locationCatalog?.countries?.find((c) => c.id === 'uk');
+  const us = useWeatherCountryDetail(heroMode === 'weather' ? 'us' : null).detail;
+  const uk = useWeatherCountryDetail(heroMode === 'weather' ? 'uk' : null).detail;
   const ukRegionSel = uk?.regions?.find((r) => r.id === ukRmaRegion);
 
   const save = async () => {

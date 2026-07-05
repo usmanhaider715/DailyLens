@@ -40,6 +40,7 @@ const articleSchema = new mongoose.Schema(
     },
     tags: [String],
     heroImage: heroSchema,
+    featuredImage: { type: String },
     author: { type: String, default: 'AI Editorial Team' },
     source: {
       name: String,

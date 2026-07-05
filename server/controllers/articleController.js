@@ -20,6 +20,7 @@ const listProjection = {
   category: 1,
   tags: 1,
   heroImage: 1,
+  featuredImage: 1,
   author: 1,
   source: 1,
   seoScore: 1,

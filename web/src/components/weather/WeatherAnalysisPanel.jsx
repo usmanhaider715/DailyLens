@@ -1,81 +1,58 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { CloudRain, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CloudRain, MapPin } from 'lucide-react';
 import { api } from '@/services/api';
+import { useVisitorLocation } from '@/context/VisitorLocationContext';
 import { Spinner } from '../common/Spinner.jsx';
 
+async function resolveAnalysisParams(weatherParams) {
+  if (weatherParams) return weatherParams;
+
+  if (typeof navigator !== 'undefined' && navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 6000,
+          maximumAge: 300000,
+          enableHighAccuracy: false,
+        });
+      });
+      return { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return { country: 'us', state: 'NY' };
+}
+
 export function WeatherAnalysisPanel() {
-  const [catalog, setCatalog] = useState(null);
-  const [country, setCountry] = useState('us');
-  const [state, setState] = useState('NY');
-  const [ukRegion, setUkRegion] = useState('england');
-  const [cityId, setCityId] = useState('england-london');
+  const { weatherParams, ready: locReady, location, openPrompt } = useVisitorLocation();
   const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!locReady) return undefined;
+    let cancelled = false;
+
     (async () => {
+      setLoading(true);
       try {
-        const { data } = await api.get('/site/weather/regions');
-        setCatalog(data);
+        const params = await resolveAnalysisParams(weatherParams);
+        const { data } = await api.get('/site/weather/analysis', { params });
+        if (!cancelled) setAnalysis(data);
+      } catch {
+        if (!cancelled) setAnalysis({ error: 'Could not load weather analysis.' });
       } finally {
-        setLoadingCatalog(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, []);
 
-  const selectedCountry = useMemo(
-    () => catalog?.countries?.find((c) => c.id === country),
-    [catalog, country],
-  );
-  const ukRegionSel = selectedCountry?.type === 'regions'
-    ? selectedCountry.regions?.find((r) => r.id === ukRegion)
-    : null;
-
-  const runAnalysis = useCallback(async () => {
-    setLoading(true);
-    setAnalysis(null);
-    try {
-      const params =
-        country === 'us'
-          ? { country: 'us', state }
-          : { country, cityId };
-      const { data } = await api.get('/site/weather/analysis', { params });
-      setAnalysis(data);
-    } catch {
-      setAnalysis({ error: 'Could not load weather analysis.' });
-    } finally {
-      setLoading(false);
-    }
-  }, [country, state, cityId]);
-
-  const seoSlug = country === 'us' ? state.toLowerCase() : cityId;
-  const seoHref = `/weather/${country}/${seoSlug}`;
-
-  const onCountryChange = (next) => {
-    setCountry(next);
-    const entry = catalog?.countries?.find((c) => c.id === next);
-    if (next === 'us') {
-      setState('NY');
-    } else if (entry?.type === 'regions') {
-      const firstRegion = entry.regions?.[0];
-      setUkRegion(firstRegion?.id || '');
-      setCityId(firstRegion?.cities?.[0]?.id || '');
-    } else if (entry?.type === 'cities') {
-      setCityId(entry.cities?.[0]?.id || '');
-    }
-  };
-
-  if (loadingCatalog) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner />
-      </div>
-    );
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [locReady, weatherParams]);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50/80 to-white shadow-sm dark:border-cyan-900/50 dark:from-cyan-950/30 dark:to-gray-900">
@@ -85,101 +62,43 @@ export function WeatherAnalysisPanel() {
           <h2 className="font-display text-lg font-bold text-gray-900 sm:text-xl dark:text-white">Weather analysis</h2>
         </div>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          US states, UK cities, and major Asian cities — today plus a 5-day outlook with rain chances.
+          Today and a 5-day outlook for your area — rain chances and conditions in plain English.
         </p>
       </div>
 
       <div className="space-y-4 px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <select
-            value={country}
-            onChange={(e) => onCountryChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm sm:w-auto dark:border-gray-700 dark:bg-gray-800"
-          >
-            {catalog?.countries?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+        {loading && (
+          <div className="flex justify-center py-10">
+            <Spinner />
+          </div>
+        )}
 
-          {selectedCountry?.type === 'states' && (
-            <select
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              className="w-full min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              {selectedCountry.states?.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label || s.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {selectedCountry?.type === 'regions' && (
-            <>
-              <select
-                value={ukRegion}
-                onChange={(e) => {
-                  setUkRegion(e.target.value);
-                  const first = selectedCountry.regions?.find((r) => r.id === e.target.value)?.cities?.[0];
-                  if (first) setCityId(first.id);
-                }}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm sm:w-auto dark:border-gray-700 dark:bg-gray-800"
-              >
-                {selectedCountry.regions?.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={cityId}
-                onChange={(e) => setCityId(e.target.value)}
-                className="w-full min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-              >
-                {ukRegionSel?.cities?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
-          {selectedCountry?.type === 'cities' && (
-            <select
-              value={cityId}
-              onChange={(e) => setCityId(e.target.value)}
-              className="w-full min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              {selectedCountry.cities?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <button
-            type="button"
-            onClick={runAnalysis}
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-700 px-5 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50 sm:w-auto"
-          >
-            {loading ? <Spinner className="h-4 w-4 border-white/30 border-t-white" /> : <Sparkles className="h-4 w-4" />}
-            Get weather analysis
-          </button>
-        </div>
-
-        {analysis && !analysis.error && (
+        {!loading && analysis && !analysis.error && (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{analysis.locationName}</p>
-              <Link href={seoHref} className="text-xs font-semibold text-primary-700 hover:underline dark:text-primary-400">
-                View SEO page →
-              </Link>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 shrink-0 text-cyan-700 dark:text-cyan-400" />
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {analysis.locationName || location?.name || 'Your location'}
+              </span>
+              <button
+                type="button"
+                onClick={openPrompt}
+                className="text-xs font-medium text-cyan-700 underline dark:text-cyan-400"
+              >
+                Change location
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="text-3xl font-bold text-gray-900 sm:text-4xl dark:text-white">
+                {analysis.today?.tempNow}°
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                <p>{analysis.today?.condition}</p>
+                <p>
+                  Feels like {analysis.today?.feelsLike}° · Wind {analysis.today?.windKph ?? '—'} km/h
+                </p>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
@@ -196,8 +115,10 @@ export function WeatherAnalysisPanel() {
                     <td className="px-4 py-2.5 font-medium">{analysis.today?.condition}</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">Temperature</td>
-                    <td className="px-4 py-2.5 font-medium">{analysis.today?.tempNow}°C</td>
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">High / Low</td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {analysis.today?.high}°C / {analysis.today?.low}°C
+                    </td>
                   </tr>
                   <tr>
                     <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">Rain chance</td>
@@ -207,13 +128,37 @@ export function WeatherAnalysisPanel() {
               </table>
             </div>
 
-            {analysis.narrative && (
-              <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{analysis.narrative}</p>
+            {analysis.bullets?.length > 0 && (
+              <ul className="space-y-2 rounded-xl border border-cyan-100 bg-white/70 px-4 py-3 dark:border-cyan-900/40 dark:bg-gray-900/40">
+                {analysis.bullets.map((item, i) => (
+                  <li key={i} className="flex gap-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-600 dark:bg-cyan-400" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {analysis.fiveDay?.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-3 md:grid-cols-5">
+                {analysis.fiveDay.map((d) => (
+                  <div key={d.date} className="rounded-lg bg-white/80 p-2 dark:bg-gray-800/80">
+                    <p className="font-medium text-gray-500">{d.label}</p>
+                    <p className="mt-1 font-bold text-gray-900 dark:text-white">
+                      {d.high}° / {d.low}°
+                    </p>
+                    <p className="mt-0.5 text-gray-500">{d.condition}</p>
+                    {d.rainChance != null && (
+                      <p className="mt-0.5 text-cyan-700 dark:text-cyan-400">{d.rainChance}% rain</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
 
-        {analysis?.error && (
+        {!loading && analysis?.error && (
           <p className="text-sm text-red-600 dark:text-red-400">{analysis.error}</p>
         )}
       </div>

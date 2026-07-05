@@ -1,10 +1,11 @@
 import { SITE_NAME, SITE_TAGLINE, absoluteUrl, canonicalUrl, SOCIAL_LINKS } from '../config/site.js';
 import { stripHtml } from './stripHtml.js';
+import { getArticleFeaturedImage } from './articleImage.js';
 
 export function buildNewsArticleJsonLd({ article, canonical }) {
   const pageUrl = canonical?.startsWith('http') ? canonical : canonicalUrl(canonical || `/article/${article.slug}`);
   const summary = stripHtml(article.summary);
-  const imageUrl = article.heroImage?.url || absoluteUrl('/logo.png');
+  const imageUrl = getArticleFeaturedImage(article) || absoluteUrl('/logo.png');
 
   return {
     '@context': 'https://schema.org',
