@@ -18,6 +18,9 @@ export const metadata = {
     'rain chance',
     '5 day forecast',
   ],
+  alternates: {
+    canonical: '/weather',
+  },
 };
 
 const ASIA_COUNTRY_LABELS = {

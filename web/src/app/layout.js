@@ -32,16 +32,9 @@ export const metadata = {
   },
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailylens.com';
+import { buildOrganizationJsonLd } from '@/utils/seoHelpers';
 
-const orgJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'NewsMediaOrganization',
-  name: 'The Daily Lens',
-  url: siteUrl,
-  logo: `${siteUrl}/logo.png`,
-  sameAs: [],
-};
+const orgJsonLd = buildOrganizationJsonLd();
 
 const themeScript = `(function(){try{var d=localStorage.getItem('theme')==='dark';document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 

@@ -12,11 +12,12 @@ import { WeatherAnalysisPanel } from '@/components/weather/WeatherAnalysisPanel'
 import { CryptoMarketChart } from '@/components/crypto/CryptoMarketChart';
 import { Spinner } from '@/components/common/Spinner';
 
-export function CategoryView({ category }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+export function CategoryView({ category, initialItems = null }) {
+  const [items, setItems] = useState(initialItems || []);
+  const [loading, setLoading] = useState(initialItems == null);
 
   useEffect(() => {
+    if (initialItems != null) return;
     (async () => {
       setLoading(true);
       try {
@@ -26,7 +27,7 @@ export function CategoryView({ category }) {
         setLoading(false);
       }
     })();
-  }, [category]);
+  }, [category, initialItems]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">

@@ -30,8 +30,13 @@ import searchRoutes from './routes/search.js';
 import liveRoutes from './routes/live.js';
 import siteRoutes from './routes/site.js';
 import imagesRoutes from './routes/images.js';
+import authorsRoutes from './routes/authors.js';
+import { ensureDefaultAuthors } from './models/Author.js';
 import {
-  buildSitemapXml,
+  buildSitemapIndexXml,
+  buildSitemapArticlesXml,
+  buildSitemapCategoriesXml,
+  buildSitemapNewsXml,
   buildRobotsTxt,
   buildRssFeed,
   buildLlmsTxt,
@@ -88,9 +93,42 @@ app.get('/robots.txt', (req, res) => {
 
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
-    const xml = await buildSitemapXml();
+    const xml = await buildSitemapIndexXml();
     res.type('application/xml');
     res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/sitemap-articles.xml', async (req, res, next) => {
+  try {
+    const xml = await buildSitemapArticlesXml();
+    res.type('application/xml');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/sitemap-categories.xml', async (req, res, next) => {
+  try {
+    const xml = await buildSitemapCategoriesXml();
+    res.type('application/xml');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/sitemap-news.xml', async (req, res, next) => {
+  try {
+    const xml = await buildSitemapNewsXml();
+    res.type('application/xml');
+    res.set('Cache-Control', 'public, max-age=1800');
     res.send(xml);
   } catch (e) {
     next(e);
@@ -124,6 +162,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/images', imagesRoutes);
+app.use('/api/authors', authorsRoutes);
 
 app.use(errorHandler);
 
@@ -154,6 +193,7 @@ async function start() {
     validateProductionEnv();
     configureCloudinary();
     await connectDB(process.env.MONGODB_URI);
+    await ensureDefaultAuthors();
     getRedis();
     if (process.env.DISABLE_AI_PIPELINE !== 'true') {
       scheduleNewsFetcher();

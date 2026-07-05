@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { Navbar } from '@/components/layout/NavbarNext';
 import { Footer } from '@/components/layout/FooterNext';
 import { LiveScoreboard } from '@/components/home/LiveScoreboard';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { buildBreadcrumbJsonLd, buildSportsEventsFromGames } from '@/utils/seoHelpers';
+import { fetchApi } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,8 +79,26 @@ export default async function LiveScoresSportPage({ params }) {
     );
   }
 
+  let games = [];
+  try {
+    const data = await fetchApi(`/live/scores?league=${meta.league}`, { revalidate: 60, cache: 'no-store' });
+    games = data?.games || [];
+  } catch {
+    /* widget loads client-side */
+  }
+
+  const jsonLd = [
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: '/' },
+      { name: 'Live Scores', url: '/live-scores' },
+      { name: meta.h1, url: `/live-scores/${sport}` },
+    ]),
+    ...buildSportsEventsFromGames(games, 8),
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <JsonLd data={jsonLd} />
       <Navbar />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10">
         <Link href="/live-scores" className="text-sm font-semibold text-primary-700 hover:underline">

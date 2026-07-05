@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
 import { formatArticleDate } from '../../utils/formatDate.js';
 import { ShareButtons } from './ShareButtons.jsx';
@@ -13,6 +14,7 @@ import { HeroImage } from '../common/HeroImage.jsx';
 import { splitArticleBody } from '../../utils/articleBodyFormat.js';
 import { prepareArticleHtml } from '../../utils/stripHtml.js';
 import { SourceNewsBriefButton } from './SourceNewsBriefButton.jsx';
+import { authorSlug } from '@/utils/seoHelpers';
 
 function splitParagraphs(body) {
   if (!body) return [];
@@ -62,12 +64,35 @@ export function ArticleBody({ article, related }) {
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
           <CategoryBadge category={article.category} />
           {article.forecast?.enabled && <ForecastBadge confidence={article.forecast.confidence} />}
-          <span>{article.author}</span>
+          <Link
+            href={`/author/${authorSlug(article.author)}`}
+            className="font-medium text-primary-700 hover:underline dark:text-primary-400"
+          >
+            {article.author || 'The Daily Lens Desk'}
+          </Link>
           <span>·</span>
           <span>{formatArticleDate(article.publishedAt)}</span>
           <span>·</span>
           <span>{article.readTime || 3} min read</span>
         </div>
+
+        {(article.source?.name || article.source?.url) && (
+          <p className="mt-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900/50 dark:text-gray-300">
+            <span className="font-semibold text-gray-800 dark:text-gray-200">Source: </span>
+            {article.source?.url && /^https?:\/\//i.test(article.source.url) ? (
+              <a
+                href={article.source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-700 hover:underline dark:text-primary-400"
+              >
+                {article.source.name || 'Original report'}
+              </a>
+            ) : (
+              <span>{article.source.name}</span>
+            )}
+          </p>
+        )}
 
         <div className="mt-4">
           <ShareButtons url={url} title={article.title} />

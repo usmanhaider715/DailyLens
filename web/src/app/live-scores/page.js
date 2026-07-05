@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { Navbar } from '@/components/layout/NavbarNext';
 import { Footer } from '@/components/layout/FooterNext';
 import { LiveScoreboard } from '@/components/home/LiveScoreboard';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { buildBreadcrumbJsonLd, buildSportsEventsFromGames } from '@/utils/seoHelpers';
+import { fetchApi } from '@/lib/api';
+import { canonicalUrl } from '@/config/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,22 +44,32 @@ const SPORT_LINKS = [
 ];
 
 export default async function LiveScoresPage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: 'Live Sports Scores — The Daily Lens',
-    description: metadata.description,
-    url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/live-scores`,
-    about: [
-      { '@type': 'SportsEvent', name: 'Football live scores' },
-      { '@type': 'SportsEvent', name: 'Cricket live scores' },
-      { '@type': 'SportsEvent', name: 'FIFA World Cup live scores' },
-    ],
-  };
+  let games = [];
+  try {
+    const data = await fetchApi('/live/scores?league=soccer', { revalidate: 60, cache: 'no-store' });
+    games = data?.games || [];
+  } catch {
+    /* client widget loads live data */
+  }
+
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Live Sports Scores — The Daily Lens',
+      description: metadata.description,
+      url: canonicalUrl('/live-scores'),
+    },
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: '/' },
+      { name: 'Live Scores', url: '/live-scores' },
+    ]),
+    ...buildSportsEventsFromGames(games, 8),
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Navbar />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10">
         <header className="mb-8 max-w-3xl">

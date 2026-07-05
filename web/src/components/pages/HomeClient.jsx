@@ -13,12 +13,19 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { FooterLegal } from '@/components/legal/SiteDisclaimers';
 import { Spinner } from '@/components/common/Spinner';
 
-export function HomeClient() {
+export function HomeClient({
+  initialFeatured = [],
+  initialArticles = [],
+  initialArticlesMeta = { page: 1, pages: 1 },
+  initialHomepage = null,
+  initialBreaking = [],
+  initialStrip = [],
+}) {
   const [tab, setTab] = useState('All');
-  const [items, setItems] = useState([]);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState(initialArticles);
+  const [page, setPage] = useState(initialArticlesMeta.page || 1);
+  const [pages, setPages] = useState(initialArticlesMeta.pages || 1);
+  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const categoryParam = tab === 'All' ? undefined : tab;
@@ -40,15 +47,25 @@ export function HomeClient() {
   };
 
   useEffect(() => {
+    if (tab === 'All') {
+      setItems(initialArticles);
+      setPage(initialArticlesMeta.page || 1);
+      setPages(initialArticlesMeta.pages || 1);
+      return;
+    }
     load(1, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
-      <BreakingNewsTicker />
+      <BreakingNewsTicker initialItems={initialBreaking} />
       <Navbar />
-      <HeroSection />
+      <HeroSection
+        initialFeatured={initialFeatured}
+        initialStrip={initialStrip}
+        initialHomepage={initialHomepage}
+      />
       <div className="mx-auto max-w-7xl border-t border-gray-100 px-4 py-8 dark:border-gray-800">
         <LiveScoreboard />
       </div>

@@ -25,7 +25,10 @@ export function Footer() {
           <div>
             <div className="font-semibold text-gray-900 dark:text-white">Company</div>
             <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
+              <li><Link href="/about">About</Link></li>
+              <li><Link href="/editorial-standards">Editorial standards</Link></li>
               <li><a href="/feed.xml">RSS Feed</a></li>
+              <li><a href="/sitemap.xml">Sitemap</a></li>
               <li><Link href="/legal/privacy">Privacy</Link></li>
               <li><Link href="/legal/terms">Terms</Link></li>
               <li><Link href="/legal/disclaimer">Disclaimer</Link></li>

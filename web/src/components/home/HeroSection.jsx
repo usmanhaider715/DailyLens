@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/services/api';
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
@@ -11,43 +11,6 @@ import { FeaturedSidebar, FeaturedBottomStrip } from './FeaturedArticlesRail.jsx
 import { stripHtml } from '../../utils/stripHtml.js';
 import { HeroImage } from '../common/HeroImage.jsx';
 import { CryptoMarketChart } from '../crypto/CryptoMarketChart.jsx';
-
-function useFeaturedArticles() {
-  const [featured, setFeatured] = useState([]);
-  const [strip, setStrip] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [{ data: feat }, { data: list }] = await Promise.all([
-          api.get('/articles/featured'),
-          api.get('/articles', { params: { limit: 12, page: 1, sort: 'latest' } }),
-        ]);
-        if (cancelled) return;
-        setFeatured(feat || []);
-        setStrip((list?.items || []).slice(0, 8));
-      } catch {
-        if (!cancelled) {
-          setFeatured([]);
-          setStrip([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const main = featured[0];
-  const secondary = featured.slice(1, 4);
-  const bottom = strip.filter((a) => a.slug !== main?.slug).slice(0, 4);
-
-  return { featured, main, secondary, bottom, loading };
-}
 
 function FeaturedMainArticle({ article, compact = false }) {
   if (!article) {
@@ -121,14 +84,42 @@ function FeaturedMainArticle({ article, compact = false }) {
   );
 }
 
-export function HeroSection() {
-  const [heroMode, setHeroMode] = useState('featured');
-  const [showCryptoChart, setShowCryptoChart] = useState(true);
-  const [defaultCryptoCoinId, setDefaultCryptoCoinId] = useState('bitcoin');
-  const [checking, setChecking] = useState(true);
-  const { main, secondary, bottom, loading: articlesLoading } = useFeaturedArticles();
+export function HeroSection({
+  initialFeatured = [],
+  initialStrip = [],
+  initialHomepage = null,
+}) {
+  const [heroMode, setHeroMode] = useState(initialHomepage?.heroMode || 'featured');
+  const [showCryptoChart, setShowCryptoChart] = useState(initialHomepage?.showCryptoChart !== false);
+  const [defaultCryptoCoinId, setDefaultCryptoCoinId] = useState(
+    initialHomepage?.defaultCryptoCoinId || 'bitcoin',
+  );
+  const [featured, setFeatured] = useState(initialFeatured);
+  const [strip, setStrip] = useState(initialStrip);
 
   useEffect(() => {
+    if (initialFeatured.length && initialStrip.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ data: feat }, { data: list }] = await Promise.all([
+          api.get('/articles/featured'),
+          api.get('/articles', { params: { limit: 12, page: 1, sort: 'latest' } }),
+        ]);
+        if (cancelled) return;
+        if (!initialFeatured.length) setFeatured(feat || []);
+        if (!initialStrip.length) setStrip((list?.items || []).slice(0, 8));
+      } catch {
+        /* keep SSR data */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialFeatured.length, initialStrip.length]);
+
+  useEffect(() => {
+    if (initialHomepage) return;
     let cancelled = false;
     (async () => {
       try {
@@ -139,35 +130,26 @@ export function HeroSection() {
           setDefaultCryptoCoinId(data.defaultCryptoCoinId || 'bitcoin');
         }
       } catch {
-        if (!cancelled) setHeroMode('featured');
-      } finally {
-        if (!cancelled) setChecking(false);
+        /* keep defaults */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialHomepage]);
+
+  const { main, secondary, bottom } = useMemo(() => {
+    const m = featured[0];
+    return {
+      main: m,
+      secondary: featured.slice(1, 4),
+      bottom: strip.filter((a) => a.slug !== m?.slug).slice(0, 4),
+    };
+  }, [featured, strip]);
 
   const showLiveMatch = heroMode === 'live_match';
   const showWeather = heroMode === 'weather';
   const showWidget = showLiveMatch || showWeather;
-  const gridLoading = checking || articlesLoading;
-
-  if (gridLoading) {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:py-10">
-        <div className="grid gap-8 lg:grid-cols-12">
-          <div className="h-[420px] animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800 lg:col-span-8" />
-          <div className="space-y-4 lg:col-span-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:py-10">

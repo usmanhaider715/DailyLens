@@ -1,35 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
-import { api } from '@/services/api';
+import { useMemo } from 'react';
 import { useBreakingNews } from '../../hooks/useBreakingNews.js';
 
-export function BreakingNewsTicker() {
-  const { items, liveCount, setItems } = useBreakingNews([]);
+function mapBreakingItems(list) {
+  return (list || []).map((a) => ({
+    headline: a.title || a.headline,
+    slug: a.slug,
+    category: a.category,
+    publishedAt: a.publishedAt,
+    key: a.slug || a._id,
+  }));
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await api.get('/articles/breaking');
-        if (cancelled) return;
-        const mapped = (data || []).map((a) => ({
-          headline: a.title,
-          slug: a.slug,
-          category: a.category,
-          publishedAt: a.publishedAt,
-          key: a.slug,
-        }));
-        setItems(mapped);
-      } catch {
-        /* noop */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [setItems]);
+export function BreakingNewsTicker({ initialItems = [] }) {
+  const seed = useMemo(() => mapBreakingItems(initialItems), [initialItems]);
+  const { items, liveCount } = useBreakingNews(seed);
 
   const display = items.length
     ? items
