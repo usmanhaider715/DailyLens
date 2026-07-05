@@ -7,7 +7,10 @@ const heroSchema = new mongoose.Schema(
     alt: String,
     credit: String,
     creditUrl: String,
-    source: { type: String, enum: ['original', 'generated', 'placeholder', 'upload'] },
+    source: {
+      type: String,
+      enum: ['original', 'generated', 'placeholder', 'upload', 'manual', 'search', 'ai', 'rss', 'feed'],
+    },
     uploadFilename: String,
   },
   { _id: false }

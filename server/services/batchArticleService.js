@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Article } from '../models/Article.js';
 import { Category } from '../models/Category.js';
-import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.js';
+import { buildArticlePayload, ensureUniqueSlug, ensureFeaturedImage } from '../utils/articleHelpers.js';
 import { slugify } from '../utils/slugify.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { emitBreakingNews } from '../services/socketService.js';
@@ -82,6 +82,7 @@ async function generateDraftWithRetry(raw, attempts = 5) {
 async function persistDraftAsArticle(draft, raw) {
   const input = draftToArticleInput(draft, raw);
   const payload = buildArticlePayload(input);
+  await ensureFeaturedImage(payload, payload.slug || slugify(payload.title));
   payload.slug = await ensureUniqueSlug(payload.slug || slugify(payload.title));
   const doc = await Article.create(payload);
   await Category.updateOne({ name: doc.category }, { $inc: { articleCount: 1 } });

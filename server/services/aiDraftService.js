@@ -1,17 +1,11 @@
 import { generateSeoArticle } from './groqService.js';
 import { resolveHeroImage, buildHeroCaption } from './imageDiscoveryService.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
+import { isSourceNewsHero } from '../utils/heroPriority.js';
 
 export async function buildAiDraftResponse(raw, suggestedCategory) {
   const article = await generateSeoArticle(raw);
   const category = article.category || suggestedCategory || 'World';
-
-  let featuredImage = '';
-  try {
-    featuredImage = await resolveFeaturedImageUrl(article.headline, category);
-  } catch {
-    /* resolveFeaturedImageUrl always returns a URL; guard only */
-  }
 
   const hero = await resolveHeroImage({
     title: article.headline,
@@ -23,6 +17,15 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
     primaryKeyword: article.primaryKeyword,
   });
   const heroCaption = hero ? buildHeroCaption(hero) : '';
+
+  let featuredImage = '';
+  if (!isSourceNewsHero(hero)) {
+    try {
+      featuredImage = await resolveFeaturedImageUrl(article.headline, category);
+    } catch {
+      /* non-blocking */
+    }
+  }
 
   return {
     title: article.headline,

@@ -13,6 +13,7 @@ import { updateTrendingCache } from './trendingUpdater.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
+import { isSourceNewsHero } from '../utils/heroPriority.js';
 
 async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -100,11 +101,17 @@ async function persistProcessed(raw, parsed) {
   }
 
   let featuredImage = '';
-  if (process.env.GROQ_API_KEY) {
-    try {
-      featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
-    } catch {
-      /* non-blocking */
+  const normalizedHero = normalizeHeroImage(
+    raw.imageUrl ? { url: raw.imageUrl, alt: parsed.headline, source: 'original' } : null,
+    parsed.category,
+  );
+  if (!isSourceNewsHero(normalizedHero)) {
+    if (process.env.GROQ_API_KEY) {
+      try {
+        featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
+      } catch {
+        /* non-blocking */
+      }
     }
   }
 

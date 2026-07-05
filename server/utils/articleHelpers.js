@@ -5,7 +5,8 @@ import { stripHtml } from './stripHtml.js';
 import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
 import { deleteHeroUploadFile, extractUploadFilename } from './heroFileUpload.js';
 import { resolveFeaturedImageUrl } from './imageGenerator.js';
-import { persistFeaturedImageIfRemote, isLocalHeroUrl } from './persistHeroImage.js';
+import { persistFeaturedImageIfRemote } from './persistHeroImage.js';
+import { isSourceNewsHero, isAdminHeroOverride } from './heroPriority.js';
 
 export async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -42,12 +43,12 @@ export function buildArticlePayload(input, existing = null) {
   const heroSource = input.heroImage?.source || '';
   const userPickedHero =
     incomingHeroUrl &&
-    (heroSource === 'original' || heroSource === 'search' || heroSource === 'upload' || heroSource === 'ai');
+    (heroSource === 'search' || heroSource === 'upload' || heroSource === 'manual' || heroSource === 'ai');
 
   let featuredImage = incomingFeatured;
   if (userPickedHero && incomingHeroUrl) {
     featuredImage = incomingHeroUrl;
-  } else if (!featuredImage && incomingHeroUrl) {
+  } else if (!featuredImage && incomingHeroUrl && !isSourceNewsHero({ url: incomingHeroUrl, source: heroSource })) {
     featuredImage = incomingHeroUrl;
   } else if (!featuredImage && existing?.featuredImage) {
     featuredImage = existing.featuredImage;
@@ -120,34 +121,32 @@ export function buildArticlePayload(input, existing = null) {
   return payload;
 }
 
-/** Ensure every article has a featured hero; persist remote URLs when possible. */
+/** Ensure featured hero follows priority: source news → AI → URL. Never overwrite source heroImage. */
 export async function ensureFeaturedImage(payload, slugHint = '') {
   if (!payload.title?.trim()) return payload;
   const hint = slugHint || payload.slug || payload.title;
   const heroSource = payload.heroImage?.source || '';
-  const userPickedHero =
-    heroSource === 'original' || heroSource === 'search' || heroSource === 'upload';
 
-  if (!payload.featuredImage?.trim()) {
-    if (userPickedHero && payload.heroImage?.url?.trim()) {
-      payload.featuredImage = payload.heroImage.url.trim();
-    } else {
-      payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World', hint);
-      return payload;
-    }
-  }
-
-  const before = payload.featuredImage;
-  payload.featuredImage = await persistFeaturedImageIfRemote(payload.featuredImage, hint);
-
-  if (payload.heroImage) {
-    payload.heroImage = { ...payload.heroImage, url: payload.featuredImage };
-  }
-
-  if (userPickedHero && !isLocalHeroUrl(payload.featuredImage) && payload.featuredImage === before) {
-    // Publisher hotlink — keep remote URL; browser loads it directly on the site.
+  if (isSourceNewsHero(payload.heroImage) && !isAdminHeroOverride(heroSource)) {
     return payload;
   }
 
+  if (isAdminHeroOverride(heroSource)) {
+    const url = payload.featuredImage?.trim() || payload.heroImage?.url?.trim();
+    if (url) {
+      payload.featuredImage = await persistFeaturedImageIfRemote(url, hint);
+      if (payload.heroImage) {
+        payload.heroImage = { ...payload.heroImage, url: payload.featuredImage };
+      }
+    }
+    return payload;
+  }
+
+  if (!payload.featuredImage?.trim()) {
+    payload.featuredImage = await resolveFeaturedImageUrl(payload.title, payload.category || 'World', hint);
+    return payload;
+  }
+
+  payload.featuredImage = await persistFeaturedImageIfRemote(payload.featuredImage, hint);
   return payload;
 }

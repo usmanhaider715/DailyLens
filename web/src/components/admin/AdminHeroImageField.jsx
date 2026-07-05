@@ -7,15 +7,17 @@ import { HeroImageSearchModal } from './HeroImageSearchModal.jsx';
 import { Spinner } from '../common/Spinner.jsx';
 import { HeroImage } from '../common/HeroImage.jsx';
 import { isPollinationsUrl } from '@/utils/pollinationsImage';
+import { isSourceNewsHero, resolveArticleDisplayHero } from '@/utils/articleImage';
 import { Search, Sparkles, Upload, ExternalLink, Link2 } from 'lucide-react';
 
 const LONG_TIMEOUT_MS = 120000;
 
 const STATUS_COPY = {
-  idle: { label: 'AI hero pending', hint: 'An AI image is generated automatically from your headline' },
-  generating: { label: 'Generating AI image…', hint: 'Creating and saving your hero image locally' },
+  idle: { label: 'Hero pending', hint: 'Uses source news photo first, then AI, then a pasted URL' },
+  generating: { label: 'Generating AI image…', hint: 'Used when no source news photo is available' },
   persisting: { label: 'Saving image…', hint: 'Downloading and compressing the hero image' },
   ready: { label: 'Hero image ready', hint: 'Applied images are saved to the live site automatically' },
+  source: { label: 'Source news photo', hint: 'Showing the image from the original news story' },
 };
 
 export default function AdminHeroImageField({
@@ -41,16 +43,25 @@ export default function AdminHeroImageField({
   const [searchOpen, setSearchOpen] = useState(false);
   const [urlInput, setUrlInput] = useState('');
 
-  const displayUrl = featuredImage?.trim() || '';
+  const displayUrl =
+    resolveArticleDisplayHero({
+      featuredImage,
+      heroImageUrl,
+      heroImageSource,
+      heroImage: { url: heroImageUrl, source: heroImageSource },
+    }) || '';
+  const usingSourcePhoto = isSourceNewsHero({ url: heroImageUrl, source: heroImageSource }) && displayUrl === heroImageUrl?.trim();
   const isAiImage = isPollinationsUrl(displayUrl) || heroImageSource === 'ai';
 
   const effectiveStatus = generating
     ? 'generating'
     : persisting
       ? 'persisting'
-      : displayUrl
-        ? 'ready'
-        : 'idle';
+      : usingSourcePhoto
+        ? 'source'
+        : displayUrl
+          ? 'ready'
+          : 'idle';
 
   const patch = useCallback((fields) => onChange?.({ ...fields }), [onChange]);
   const slugHint = slug?.trim() || title?.trim() || 'hero';
@@ -111,9 +122,10 @@ export default function AdminHeroImageField({
           { timeout: LONG_TIMEOUT_MS },
         );
         if (data?.url) {
+          const keepSource = isSourceNewsHero({ url: heroImageUrl, source: heroImageSource });
           const fields = {
             featuredImage: data.url,
-            heroImageUrl: data.url,
+            heroImageUrl: keepSource ? heroImageUrl : data.url,
             heroImageSource: 'ai',
             heroImageUploadFilename: '',
           };
@@ -132,14 +144,15 @@ export default function AdminHeroImageField({
       }
       return null;
     },
-    [title, category, slugHint, patch, applyHero],
+    [title, category, slugHint, patch, applyHero, heroImageUrl, heroImageSource],
   );
 
   useEffect(() => {
     if (featuredImage?.trim() || !title?.trim() || autoGenAttempted.current) return;
+    if (isSourceNewsHero({ url: heroImageUrl, source: heroImageSource })) return;
     autoGenAttempted.current = true;
     generateAiImage(true);
-  }, [featuredImage, title, generateAiImage]);
+  }, [featuredImage, title, heroImageUrl, heroImageSource, generateAiImage]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -203,7 +216,7 @@ export default function AdminHeroImageField({
     const fields = {
       featuredImage: localUrl,
       heroImageUrl: localUrl,
-      heroImageSource: 'original',
+      heroImageSource: 'manual',
       heroImageUploadFilename: '',
     };
     setUrlInput(localUrl);
@@ -223,7 +236,7 @@ export default function AdminHeroImageField({
           </div>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              effectiveStatus === 'ready'
+              effectiveStatus === 'ready' || effectiveStatus === 'source'
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200'
                 : effectiveStatus === 'generating' || effectiveStatus === 'persisting'
                   ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200'
@@ -235,6 +248,7 @@ export default function AdminHeroImageField({
             )}
             {copy.label}
             {isAiImage && effectiveStatus === 'ready' ? ' · AI' : ''}
+            {effectiveStatus === 'source' ? ' · Source' : ''}
           </span>
         </div>
 
