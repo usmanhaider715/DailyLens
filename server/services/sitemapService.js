@@ -49,6 +49,11 @@ export async function buildSitemapXml() {
       )
     ),
     urlEntry(`${site}/weather`, now, 'hourly', '0.85'),
+    urlEntry(`${site}/live-scores`, now, 'always', '0.95'),
+    urlEntry(`${site}/live-scores/football`, now, 'always', '0.92'),
+    urlEntry(`${site}/live-scores/cricket`, now, 'always', '0.9'),
+    urlEntry(`${site}/live-scores/nfl`, now, 'hourly', '0.85'),
+    urlEntry(`${site}/live-scores/nba`, now, 'hourly', '0.85'),
     ...getAllWeatherSeoLocations().map((loc) =>
       urlEntry(`${site}/weather/${loc.country}/${loc.slug}`, now, 'hourly', '0.8')
     ),

@@ -55,7 +55,7 @@ export function HomeClient() {
       <div className="border-t border-gray-100 bg-gray-50/50 py-8 dark:border-gray-800 dark:bg-gray-900/20">
         <CategoryTabs active={tab} onChange={setTab} />
       </div>
-      <div className="mx-auto flex max-w-7xl gap-10 px-4 pb-16 pt-4">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-16 pt-4 lg:flex-row lg:gap-10">
         <div className="min-w-0 flex-1">
           {loading ? (
             <div className="flex justify-center py-16">

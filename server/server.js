@@ -165,6 +165,7 @@ async function start() {
     setInterval(pushTicker, 5 * 60 * 1000);
     startLiveScoresPoller();
     await updateTrendingCache();
+    setInterval(broadcastLiveCount, 30000);
     server.listen(PORT, '0.0.0.0', () => logger.info(`Server listening on ${PORT}`));
   } catch (e) {
     logger.error(e);

@@ -1,80 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Activity, Globe, Radio, Users, Zap } from 'lucide-react';
 import { api } from '@/services/api';
-import { getSocket } from '@/services/socket';
 import { Spinner } from '../common/Spinner.jsx';
 
 const LIVE_TRAFFIC_DETAILS = [
   {
-    title: 'What it measures',
-    body: 'Each open browser tab connected to the site counts as one visitor. The number updates instantly when someone opens or closes the site.',
+    title: 'Real connections (admin)',
+    body: 'Each open browser tab with an active Socket.io connection counts as one real visitor. This is the accurate number shown here only.',
+  },
+  {
+    title: 'Public ticker display',
+    body: 'Visitors see an engagement count between 500 and 1,000 in the breaking news ticker. It drifts slightly every ~30 seconds and is not the real connection count.',
   },
   {
     title: 'Where visitors see it',
-    body: 'The “X online” badge appears in the breaking news ticker at the top of every public page (desktop and tablet).',
-  },
-  {
-    title: 'How it works',
-    body: 'Socket.io keeps a live WebSocket connection. On connect or disconnect, the server broadcasts the updated count to all clients.',
+    body: 'The public “X online” badge appears in the breaking news ticker at the top of every page, including mobile.',
   },
   {
     title: 'Also powered by Socket.io',
-    body: 'Breaking headline pushes, ticker refreshes every 5 minutes, and live scoreboard updates when cricket or soccer data changes.',
+    body: 'Breaking headline pushes, ticker refreshes every 5 minutes, and live scoreboard updates when football or cricket data changes.',
   },
 ];
 
 export function AnalyticsDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [liveNow, setLiveNow] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: d } = await api.get('/admin/analytics');
-        if (!cancelled) {
-          setData(d);
-          setLiveNow(d?.liveTraffic?.liveNow ?? 0);
-        }
-      } catch {
-        toast.error('Failed to load analytics');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const refresh = useCallback(async () => {
+    try {
+      const { data: d } = await api.get('/admin/analytics');
+      setData(d);
+    } catch {
+      toast.error('Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return undefined;
+    refresh();
+    const id = setInterval(refresh, 15000);
+    return () => clearInterval(id);
+  }, [refresh]);
 
-    const onLive = (n) => setLiveNow(typeof n === 'number' ? n : 0);
-    socket.on('live_count', onLive);
-    return () => {
-      socket.off('live_count', onLive);
-    };
-  }, []);
-
-  if (loading) return <Spinner />;
+  if (loading && !data) return <Spinner />;
 
   const traffic = data?.liveTraffic;
+  const liveNow = traffic?.liveNow ?? 0;
+  const publicCount = traffic?.publicDisplayCount ?? '—';
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+      <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">Dashboard</h1>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Site performance, article stats, and live visitor traffic.
       </p>
 
       <section className="mt-8">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Radio className="h-5 w-5 text-emerald-600" />
           <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Live traffic</h2>
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -82,52 +68,62 @@ export function AnalyticsDashboard() {
           </span>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white p-5 dark:border-emerald-900/50 dark:from-emerald-950/30 dark:to-gray-900">
             <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
               <Users className="h-4 w-4" />
-              Visitors online now
+              Real visitors online
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-4xl font-bold tabular-nums text-gray-900 dark:text-white">{liveNow}</span>
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Same count shown in the public ticker as “{liveNow} online”.
+              Actual Socket.io connections — admin only.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-5 dark:border-amber-900/50 dark:from-amber-950/30 dark:to-gray-900">
+            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+              <Globe className="h-4 w-4" />
+              Public ticker shows
+            </div>
+            <div className="mt-2 text-4xl font-bold tabular-nums text-gray-900 dark:text-white">{publicCount}</div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Random {traffic?.publicCountRange ?? '500–1000'} engagement display for visitors.
             </p>
           </div>
 
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-800">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Activity className="h-4 w-4" />
-              Peak since server restart
+              Peak real connections
             </div>
             <div className="mt-2 text-4xl font-bold tabular-nums text-primary-800 dark:text-primary-200">
               {traffic?.peakSinceRestart ?? liveNow}
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Resets when the API process restarts (deploy or PM2 restart).
+              Resets when the API process restarts.
             </p>
           </div>
 
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-800">
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Globe className="h-4 w-4" />
-              Public display
+              <Zap className="h-4 w-4" />
+              Server uptime
             </div>
             <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
-              {traffic?.displayLocation ?? 'Breaking news ticker (top bar)'}
-            </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Transport: {traffic?.method ?? 'socket.io'} · Server up since{' '}
               {traffic?.serverStartedAt
                 ? new Date(traffic.serverStartedAt).toLocaleString()
                 : '—'}
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {traffic?.displayLocation ?? 'Breaking news ticker'} · {traffic?.method ?? 'socket.io'}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-950/50">
+        <div className="mt-6 rounded-xl border border-gray-100 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-950/50">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
             <Zap className="h-4 w-4 text-amber-500" />
             How live traffic works
@@ -141,15 +137,15 @@ export function AnalyticsDashboard() {
             ))}
           </dl>
           <p className="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-            Tip: Open the homepage in a private window — the online count should increase by 1 within a second. Close
-            the tab and it drops again.
+            Tip: Open the homepage in a private window — the real connection count above should increase by 1. The
+            public ticker will show a separate number between 500 and 1,000.
           </p>
         </div>
       </section>
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Article analytics</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800">
             <div className="text-sm text-gray-500">Total views</div>
             <div className="mt-1 text-3xl font-bold text-primary-800 dark:text-primary-200">
@@ -162,13 +158,13 @@ export function AnalyticsDashboard() {
               {data?.articlesToday ?? 0}
             </div>
           </div>
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800">
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 sm:col-span-2 md:col-span-1 dark:border-gray-800 dark:bg-gray-800">
             <div className="text-sm text-gray-500">Top category slots</div>
             <div className="mt-2 space-y-1 text-sm">
               {(data?.topCategories || []).slice(0, 4).map((c) => (
-                <div key={c._id} className="flex justify-between">
-                  <span>{c._id}</span>
-                  <span className="font-semibold">{c.count}</span>
+                <div key={c._id} className="flex justify-between gap-2">
+                  <span className="truncate">{c._id}</span>
+                  <span className="shrink-0 font-semibold">{c.count}</span>
                 </div>
               ))}
             </div>
@@ -180,8 +176,8 @@ export function AnalyticsDashboard() {
         <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Trending (24h)</h2>
         <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
           {(data?.trending || []).map((a) => (
-            <li key={a._id} className="flex justify-between gap-4 py-2 text-sm">
-              <span>{a.title}</span>
+            <li key={a._id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:justify-between sm:gap-4">
+              <span className="min-w-0">{a.title}</span>
               <span className="shrink-0 text-gray-500">{a.views} views</span>
             </li>
           ))}

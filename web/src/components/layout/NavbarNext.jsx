@@ -10,6 +10,7 @@ import { DarkModeToggle } from '@/components/common/DarkModeToggle';
 import { SiteLogo } from '@/components/common/SiteLogo';
 
 const cats = [
+  ['Live Scores', '/live-scores'],
   ['World', 'World'],
   ['Tech', 'Technology'],
   ['Business', 'Business'],
@@ -31,11 +32,11 @@ export function Navbar() {
         <SiteLogo />
         <nav className="hidden items-center gap-5 lg:flex">
           {cats.map(([label, path]) => {
-            const href = `/category/${encodeURIComponent(path)}`;
+            const href = path.startsWith('/') ? path : `/category/${encodeURIComponent(path)}`;
             const active = pathname === href;
             return (
               <Link
-                key={path}
+                key={href}
                 href={href}
                 className={`text-sm font-medium ${
                   active
@@ -72,16 +73,19 @@ export function Navbar() {
         <div className="border-t border-gray-100 bg-white px-4 py-3 lg:hidden dark:border-gray-800 dark:bg-gray-900">
           <SearchBar className="mb-3 block md:hidden" inputClassName="!w-full" />
           <div className="flex flex-col gap-2">
-            {cats.map(([label, path]) => (
+            {cats.map(([label, path]) => {
+              const href = path.startsWith('/') ? path : `/category/${encodeURIComponent(path)}`;
+              return (
               <Link
-                key={path}
-                href={`/category/${encodeURIComponent(path)}`}
+                key={href}
+                href={href}
                 className="rounded-md px-2 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800"
                 onClick={() => setOpen(false)}
               >
                 {label}
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

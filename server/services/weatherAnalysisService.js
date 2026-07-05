@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { cacheGet, cacheSet } from './cacheService.js';
 import { getWeatherForecast } from './weatherService.js';
-import { resolveLocation } from '../data/weatherLocations.js';
+import { resolveLocation, getWeatherRegionLabel } from '../data/weatherLocations.js';
 import { logger } from '../utils/logger.js';
 
 function formatDayLabel(dateStr) {
@@ -155,7 +155,7 @@ export async function getWeatherAnalysis(query = {}) {
   const weather = await getWeatherForecast({
     country: point.country,
     state: point.country === 'us' ? point.id : undefined,
-    cityId: point.country === 'uk' ? point.id : undefined,
+    cityId: point.country !== 'us' ? point.id : undefined,
     lat: query.lat,
     lon: query.lon,
   });
@@ -178,7 +178,7 @@ export async function getWeatherAnalysis(query = {}) {
       'weather forecast',
       'rain chance',
       '5 day forecast',
-      point.country === 'uk' ? 'UK weather' : 'US weather',
+      getWeatherRegionLabel(point.country),
     ],
   };
 

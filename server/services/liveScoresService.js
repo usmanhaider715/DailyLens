@@ -32,6 +32,7 @@ const ESPN_LEAGUES = [
 ];
 
 export const SOCCER_LEAGUES = [
+  { slug: 'fifa.world', label: 'FIFA World Cup', competition: 'FIFA World Cup' },
   { slug: 'eng.1', label: 'Premier League', competition: 'Premier League' },
   { slug: 'esp.1', label: 'La Liga', competition: 'La Liga' },
   { slug: 'ger.1', label: 'Bundesliga', competition: 'Bundesliga' },
@@ -41,9 +42,9 @@ export const SOCCER_LEAGUES = [
 ];
 
 const CRICKET_LEAGUE = { id: 'cricket', label: 'Cricket' };
-const SOCCER_LEAGUE = { id: 'soccer', label: 'Soccer' };
+const SOCCER_LEAGUE = { id: 'soccer', label: 'Football' };
 
-const LEAGUES = [...ESPN_LEAGUES, CRICKET_LEAGUE, SOCCER_LEAGUE];
+const LEAGUES = [SOCCER_LEAGUE, CRICKET_LEAGUE, ...ESPN_LEAGUES];
 
 function mapTeam(competitor) {
   if (!competitor) return null;
@@ -170,7 +171,7 @@ export async function getSoccerScores({ refresh = false } = {}) {
   if (!refresh && cached?.games?.length) return cached;
 
   const previousGames = cached?.games || [];
-  const leagueMeta = { id: 'soccer', label: 'Soccer' };
+  const leagueMeta = { id: 'soccer', label: 'Football' };
   const results = await Promise.allSettled(
     SOCCER_LEAGUES.map(async (sl) => {
       const base = `https://site.api.espn.com/apis/site/v2/sports/soccer/${sl.slug}/scoreboard`;
@@ -187,7 +188,7 @@ export async function getSoccerScores({ refresh = false } = {}) {
 
   const payload = {
     leagueId: 'soccer',
-    label: 'Soccer',
+    label: 'Football',
     games,
     competitions,
     updatedAt: new Date().toISOString(),

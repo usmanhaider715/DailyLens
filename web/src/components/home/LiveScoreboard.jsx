@@ -10,8 +10,8 @@ const FAST_POLL_LEAGUES = new Set(['cricket', 'soccer']);
 const POLL_MS_FAST = 20000;
 const POLL_MS_DEFAULT = 30000;
 
-export function LiveScoreboard({ compact = false }) {
-  const [activeLeague, setActiveLeague] = useState('cricket');
+export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
+  const [activeLeague, setActiveLeague] = useState(defaultLeague);
   const [leagues, setLeagues] = useState([]);
   const [boards, setBoards] = useState([]);
   const [games, setGames] = useState([]);
@@ -57,8 +57,8 @@ export function LiveScoreboard({ compact = false }) {
   }, []);
 
   useEffect(() => {
-    load('cricket', { refresh: true, showLoading: true }).finally(() => setLoading(false));
-  }, [load]);
+    load(defaultLeague, { refresh: true, showLoading: true }).finally(() => setLoading(false));
+  }, [load, defaultLeague]);
 
   const pollMs = FAST_POLL_LEAGUES.has(activeLeague) ? POLL_MS_FAST : POLL_MS_DEFAULT;
 

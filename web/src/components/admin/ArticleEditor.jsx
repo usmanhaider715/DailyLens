@@ -11,7 +11,7 @@ import { HeroImage } from '../common/HeroImage.jsx';
 import { loadAdminDraft, draftToEditorForm } from '@/utils/adminDraft';
 import { WriteNeatSection } from './WriteNeatSection.jsx';
 import { HeroImageSearchModal } from './HeroImageSearchModal.jsx';
-import { Search, Upload } from 'lucide-react';
+import { Search, Upload, ExternalLink } from 'lucide-react';
 
 const categories = [
   'World',
@@ -346,7 +346,7 @@ export function ArticleEditor() {
                 Using uploaded file (preferred over external URL)
               </p>
             )}
-            <div className="mt-1 flex flex-wrap gap-2">
+            <div className="mt-1 flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
               <input
                 value={form.heroImageUrl}
                 onChange={(e) => {
@@ -363,7 +363,7 @@ export function ArticleEditor() {
                 }}
                 placeholder="https://... or /uploads/heroes/..."
                 readOnly={form.heroImageSource === 'upload' && !!form.heroImageUploadFilename}
-                className={`min-w-0 flex-1 rounded-lg border px-3 py-2 dark:bg-gray-800 dark:text-gray-100 ${
+                className={`w-full min-w-0 rounded-lg border px-3 py-2 dark:bg-gray-800 dark:text-gray-100 sm:flex-1 ${
                   form.heroImageSource === 'upload'
                     ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800'
                     : 'border-gray-200 dark:border-gray-700'
@@ -380,7 +380,7 @@ export function ArticleEditor() {
                 type="button"
                 disabled={heroUploading}
                 onClick={() => heroFileRef.current?.click()}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 sm:w-auto dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
               >
                 {heroUploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
                 Upload from file
@@ -388,10 +388,21 @@ export function ArticleEditor() {
               <button
                 type="button"
                 onClick={() => setHeroSearchOpen(true)}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-primary-600 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100 dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary-600 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-800 hover:bg-primary-100 sm:w-auto dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200"
               >
                 <Search className="h-4 w-4" />
                 Search hero image
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const q = encodeURIComponent(form.title?.trim() || form.category || 'news');
+                  window.open(`https://www.google.com/search?q=${q}`, '_blank', 'noopener,noreferrer');
+                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 sm:w-auto dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Search manually
               </button>
               {form.heroImageSource === 'upload' && (
                 <button

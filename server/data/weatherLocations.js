@@ -107,6 +107,160 @@ export const UK_REGIONS = [
   },
 ];
 
+/** Major Asian cities for forecasts and geo-location snapping. */
+export const ASIA_COUNTRIES = [
+  {
+    id: 'in',
+    name: 'India',
+    timezone: 'Asia/Kolkata',
+    cities: [
+      { id: 'mumbai', name: 'Mumbai', lat: 19.076, lon: 72.8777 },
+      { id: 'delhi', name: 'New Delhi', lat: 28.6139, lon: 77.209 },
+      { id: 'bangalore', name: 'Bangalore', lat: 12.9716, lon: 77.5946 },
+      { id: 'chennai', name: 'Chennai', lat: 13.0827, lon: 80.2707 },
+      { id: 'kolkata', name: 'Kolkata', lat: 22.5726, lon: 88.3639 },
+      { id: 'hyderabad', name: 'Hyderabad', lat: 17.385, lon: 78.4867 },
+      { id: 'pune', name: 'Pune', lat: 18.5204, lon: 73.8567 },
+      { id: 'ahmedabad', name: 'Ahmedabad', lat: 23.0225, lon: 72.5714 },
+    ],
+  },
+  {
+    id: 'pk',
+    name: 'Pakistan',
+    timezone: 'Asia/Karachi',
+    cities: [
+      { id: 'karachi', name: 'Karachi', lat: 24.8607, lon: 67.0011 },
+      { id: 'lahore', name: 'Lahore', lat: 31.5497, lon: 74.3436 },
+      { id: 'islamabad', name: 'Islamabad', lat: 33.6844, lon: 73.0479 },
+      { id: 'faisalabad', name: 'Faisalabad', lat: 31.4504, lon: 73.135 },
+      { id: 'rawalpindi', name: 'Rawalpindi', lat: 33.5651, lon: 73.0169 },
+    ],
+  },
+  {
+    id: 'bd',
+    name: 'Bangladesh',
+    timezone: 'Asia/Dhaka',
+    cities: [
+      { id: 'dhaka', name: 'Dhaka', lat: 23.8103, lon: 90.4125 },
+      { id: 'chittagong', name: 'Chittagong', lat: 22.3569, lon: 91.7832 },
+      { id: 'sylhet', name: 'Sylhet', lat: 24.8949, lon: 91.8687 },
+    ],
+  },
+  {
+    id: 'jp',
+    name: 'Japan',
+    timezone: 'Asia/Tokyo',
+    cities: [
+      { id: 'tokyo', name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+      { id: 'osaka', name: 'Osaka', lat: 34.6937, lon: 135.5023 },
+      { id: 'kyoto', name: 'Kyoto', lat: 35.0116, lon: 135.7681 },
+      { id: 'nagoya', name: 'Nagoya', lat: 35.1815, lon: 136.9066 },
+      { id: 'sapporo', name: 'Sapporo', lat: 43.0618, lon: 141.3545 },
+      { id: 'fukuoka', name: 'Fukuoka', lat: 33.5904, lon: 130.4017 },
+    ],
+  },
+  {
+    id: 'cn',
+    name: 'China',
+    timezone: 'Asia/Shanghai',
+    cities: [
+      { id: 'beijing', name: 'Beijing', lat: 39.9042, lon: 116.4074 },
+      { id: 'shanghai', name: 'Shanghai', lat: 31.2304, lon: 121.4737 },
+      { id: 'guangzhou', name: 'Guangzhou', lat: 23.1291, lon: 113.2644 },
+      { id: 'shenzhen', name: 'Shenzhen', lat: 22.5431, lon: 114.0579 },
+      { id: 'chengdu', name: 'Chengdu', lat: 30.5728, lon: 104.0668 },
+      { id: 'hongkong', name: 'Hong Kong', lat: 22.3193, lon: 114.1694 },
+    ],
+  },
+  {
+    id: 'ae',
+    name: 'United Arab Emirates',
+    timezone: 'Asia/Dubai',
+    cities: [
+      { id: 'dubai', name: 'Dubai', lat: 25.2048, lon: 55.2708 },
+      { id: 'abudhabi', name: 'Abu Dhabi', lat: 24.4539, lon: 54.3773 },
+      { id: 'sharjah', name: 'Sharjah', lat: 25.3463, lon: 55.4209 },
+    ],
+  },
+  {
+    id: 'sg',
+    name: 'Singapore',
+    timezone: 'Asia/Singapore',
+    cities: [{ id: 'singapore', name: 'Singapore', lat: 1.3521, lon: 103.8198 }],
+  },
+  {
+    id: 'th',
+    name: 'Thailand',
+    timezone: 'Asia/Bangkok',
+    cities: [
+      { id: 'bangkok', name: 'Bangkok', lat: 13.7563, lon: 100.5018 },
+      { id: 'chiangmai', name: 'Chiang Mai', lat: 18.7883, lon: 98.9853 },
+      { id: 'phuket', name: 'Phuket', lat: 7.8804, lon: 98.3923 },
+    ],
+  },
+  {
+    id: 'id',
+    name: 'Indonesia',
+    timezone: 'Asia/Jakarta',
+    cities: [
+      { id: 'jakarta', name: 'Jakarta', lat: -6.2088, lon: 106.8456 },
+      { id: 'surabaya', name: 'Surabaya', lat: -7.2575, lon: 112.7521 },
+      { id: 'bali', name: 'Denpasar (Bali)', lat: -8.6705, lon: 115.2126 },
+    ],
+  },
+  {
+    id: 'my',
+    name: 'Malaysia',
+    timezone: 'Asia/Kuala_Lumpur',
+    cities: [
+      { id: 'kualalumpur', name: 'Kuala Lumpur', lat: 3.139, lon: 101.6869 },
+      { id: 'penang', name: 'George Town (Penang)', lat: 5.4141, lon: 100.3288 },
+      { id: 'johor', name: 'Johor Bahru', lat: 1.4927, lon: 103.7414 },
+    ],
+  },
+  {
+    id: 'ph',
+    name: 'Philippines',
+    timezone: 'Asia/Manila',
+    cities: [
+      { id: 'manila', name: 'Manila', lat: 14.5995, lon: 120.9842 },
+      { id: 'cebu', name: 'Cebu', lat: 10.3157, lon: 123.8854 },
+      { id: 'davao', name: 'Davao', lat: 7.1907, lon: 125.4553 },
+    ],
+  },
+  {
+    id: 'kr',
+    name: 'South Korea',
+    timezone: 'Asia/Seoul',
+    cities: [
+      { id: 'seoul', name: 'Seoul', lat: 37.5665, lon: 126.978 },
+      { id: 'busan', name: 'Busan', lat: 35.1796, lon: 129.0756 },
+      { id: 'incheon', name: 'Incheon', lat: 37.4563, lon: 126.7052 },
+    ],
+  },
+  {
+    id: 'sa',
+    name: 'Saudi Arabia',
+    timezone: 'Asia/Riyadh',
+    cities: [
+      { id: 'riyadh', name: 'Riyadh', lat: 24.7136, lon: 46.6753 },
+      { id: 'jeddah', name: 'Jeddah', lat: 21.4858, lon: 39.1925 },
+      { id: 'mecca', name: 'Mecca', lat: 21.3891, lon: 39.8579 },
+    ],
+  },
+];
+
+export function isAsiaCountry(countryId) {
+  return ASIA_COUNTRIES.some((c) => c.id === countryId);
+}
+
+export function getWeatherRegionLabel(countryId) {
+  if (countryId === 'us') return 'US weather';
+  if (countryId === 'uk') return 'UK weather';
+  const asia = ASIA_COUNTRIES.find((c) => c.id === countryId);
+  return asia ? `${asia.name} weather` : 'weather';
+}
+
 export function getLocationCatalog() {
   return {
     countries: [
@@ -139,6 +293,19 @@ export function getLocationCatalog() {
           })),
         })),
       },
+      ...ASIA_COUNTRIES.map((ac) => ({
+        id: ac.id,
+        label: ac.name,
+        type: 'cities',
+        timezone: ac.timezone,
+        cities: ac.cities.map((c) => ({
+          id: `${ac.id}-${c.id}`,
+          name: c.name,
+          lat: c.lat,
+          lon: c.lon,
+          timezone: ac.timezone,
+        })),
+      })),
     ],
   };
 }
@@ -179,6 +346,23 @@ export function findNearestLocation(lat, lon) {
     }
   }
 
+  for (const ac of ASIA_COUNTRIES) {
+    for (const c of ac.cities) {
+      const d = haversineKm(lat, lon, c.lat, c.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        best = {
+          country: ac.id,
+          id: `${ac.id}-${c.id}`,
+          name: `${c.name}, ${ac.name}`,
+          lat: c.lat,
+          lon: c.lon,
+          timezone: ac.timezone,
+        };
+      }
+    }
+  }
+
   return best;
 }
 
@@ -202,7 +386,17 @@ export function getAllWeatherSeoLocations() {
       label: `${c.name}, ${r.name}`,
     }))
   );
-  return [...us, ...uk];
+  const asia = ASIA_COUNTRIES.flatMap((ac) =>
+    ac.cities.map((c) => ({
+      country: ac.id,
+      slug: `${ac.id}-${c.id}`,
+      state: null,
+      cityId: `${ac.id}-${c.id}`,
+      name: `${c.name}, ${ac.name}`,
+      label: `${c.name}, ${ac.name}`,
+    }))
+  );
+  return [...us, ...uk, ...asia];
 }
 
 export function resolveLocationBySlug(country, slug) {
@@ -214,6 +408,10 @@ export function resolveLocationBySlug(country, slug) {
   }
   if (c === 'uk') {
     return resolveLocation({ country: 'uk', cityId: slug });
+  }
+  const asia = ASIA_COUNTRIES.find((x) => x.id === c);
+  if (asia) {
+    return resolveLocation({ country: asia.id, cityId: slug });
   }
   return null;
 }
@@ -248,6 +446,22 @@ export function resolveLocation({ country, state, cityId, lat, lon }) {
           timezone: 'Europe/London',
         };
       }
+    }
+  }
+  const asia = ASIA_COUNTRIES.find((x) => x.id === country);
+  if (asia && cityId) {
+    const cityKey = cityId.startsWith(`${country}-`) ? cityId.slice(country.length + 1) : cityId;
+    const c = asia.cities.find((x) => x.id === cityKey || `${country}-${x.id}` === cityId);
+    if (c) {
+      const compositeId = `${country}-${c.id}`;
+      return {
+        country: asia.id,
+        id: compositeId,
+        name: `${c.name}, ${asia.name}`,
+        lat: c.lat,
+        lon: c.lon,
+        timezone: asia.timezone,
+      };
     }
   }
   return US_STATES[0]
