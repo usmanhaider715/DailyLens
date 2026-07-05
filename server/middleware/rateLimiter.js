@@ -36,6 +36,14 @@ export const adminAiLimiter = rateLimit({
   message: { message: 'AI rate limit reached. Wait a moment.' },
 });
 
+export const batchPublishLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many batch jobs started. Wait before starting another.' },
+});
+
 export const imageProxyLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,

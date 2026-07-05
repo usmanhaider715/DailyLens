@@ -3,7 +3,7 @@ import { requireAdmin } from '../middleware/auth.js';
 import * as admin from '../controllers/adminController.js';
 import * as adminAi from '../controllers/adminAiController.js';
 import * as images from '../controllers/imageController.js';
-import { adminAiLimiter } from '../middleware/rateLimiter.js';
+import { adminAiLimiter, batchPublishLimiter } from '../middleware/rateLimiter.js';
 import { heroUploadMiddleware } from '../middleware/uploadHero.js';
 
 const router = Router();
@@ -47,5 +47,7 @@ router.get('/ai/google-news/search', adminAiLimiter, adminAi.searchGoogleNewsAdm
 router.post('/ai/generate-article', adminAiLimiter, adminAi.generateArticleFromStory);
 router.post('/ai/generate-from-rough-text', adminAiLimiter, adminAi.generateArticleFromRoughText);
 router.post('/ai/generate-from-trend', adminAiLimiter, adminAi.generateArticleFromTrend);
+router.post('/ai/batch-publish', batchPublishLimiter, adminAi.startBatchPublish);
+router.get('/ai/batch-publish/:jobId', adminAi.getBatchPublishStatus);
 
 export default router;

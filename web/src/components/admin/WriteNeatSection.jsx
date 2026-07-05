@@ -6,7 +6,9 @@ import { api } from '@/services/api';
 import { Sparkles } from 'lucide-react';
 import { Spinner } from '../common/Spinner.jsx';
 import { ArticleDraftPreviewModal } from './ArticleDraftPreviewModal.jsx';
+import { BatchPublishProgress } from './BatchPublishProgress.jsx';
 import { draftToEditorForm } from '@/utils/adminDraft';
+import { splitRoughNotes, runBatchPublish, MAX_BATCH } from '@/utils/batchPublish';
 
 const categories = [
   'World',
@@ -29,6 +31,10 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewDraft, setPreviewDraft] = useState(null);
   const [publishing, setPublishing] = useState(false);
+  const [batchJobId, setBatchJobId] = useState(null);
+
+  const noteBlocks = splitRoughNotes(roughText);
+  const multiMode = noteBlocks.length > 1;
 
   const handleWrite = async () => {
     const text = roughText.trim();
@@ -36,6 +42,38 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
       toast.error('Paste at least a few sentences of rough notes (80+ characters).');
       return;
     }
+
+    if (multiMode) {
+      if (noteBlocks.length > MAX_BATCH) {
+        toast.error(`Maximum ${MAX_BATCH} articles per batch — split into smaller groups`);
+        return;
+      }
+      setPublishing(true);
+      try {
+        const items = noteBlocks.map((block, index) => {
+          const firstLine = block.split(/\n/).find((l) => l.trim().length > 10)?.trim() || `Draft ${index + 1}`;
+          return {
+            title: firstLine.slice(0, 200),
+            description: block.slice(0, 600),
+            content: block,
+            url: `https://www.thedailylens.space/admin/drafts/write-neat-${Date.now()}-${index}`,
+            sourceName: sourceNote || 'Write neat notes',
+            sourceUrl: '',
+            publishedAt: new Date().toISOString(),
+            suggestedCategory: category,
+          };
+        });
+        const jobId = await runBatchPublish(items);
+        setBatchJobId(jobId);
+        toast.success(`Batch started — ${items.length} articles from your notes`);
+      } catch (err) {
+        toast.error(err?.response?.data?.message || 'Could not start batch');
+      } finally {
+        setPublishing(false);
+      }
+      return;
+    }
+
     setPreviewOpen(true);
     setPreviewLoading(true);
     setPreviewDraft(null);
@@ -107,8 +145,30 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
         </div>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Paste rough notes copied from another source. Groq rewrites them into a full SEO article — preview first,
-          then publish or edit below.
+          then publish or edit below. Separate multiple articles with a line containing only{' '}
+          <code className="rounded bg-white/80 px-1 dark:bg-gray-900">---</code>.
         </p>
+
+        {batchJobId ? (
+          <div className="mt-4">
+            <BatchPublishProgress
+              jobId={batchJobId}
+              onComplete={(job) => {
+                setBatchJobId(null);
+                if (job?.published > 0) {
+                  setRoughText('');
+                  onPublished?.();
+                }
+              }}
+            />
+          </div>
+        ) : null}
+
+        {multiMode ? (
+          <p className="mt-2 text-sm font-medium text-primary-800 dark:text-primary-200">
+            Detected {noteBlocks.length} articles — batch publish all at once (max {MAX_BATCH}).
+          </p>
+        ) : null}
 
         <label className="mt-4 block text-sm font-medium text-gray-800 dark:text-gray-200">
           Rough source text *
@@ -150,11 +210,11 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
         <button
           type="button"
           onClick={handleWrite}
-          disabled={previewLoading}
+          disabled={previewLoading || publishing || !!batchJobId}
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
         >
           {previewLoading ? <Spinner className="h-4 w-4 border-white/30 border-t-white" /> : <Sparkles className="h-4 w-4" />}
-          Write neat with AI
+          {multiMode ? `Publish ${noteBlocks.length} articles` : 'Write neat with AI'}
         </button>
       </section>
 

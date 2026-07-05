@@ -1,55 +1,19 @@
 import { fetchLatestNewsFeedForAdmin } from '../services/newsService.js';
-import { generateSeoArticle } from '../services/groqService.js';
-import {
-  resolveHeroImage,
-  buildHeroCaption,
-  searchHeroImageCandidates,
-} from '../services/imageDiscoveryService.js';
+import { buildAiDraftResponse } from '../services/aiDraftService.js';
+import { searchHeroImageCandidates } from '../services/imageDiscoveryService.js';
 import {
   listGoogleTrends,
   fetchGoogleNewsStoryForTrend,
   buildRawArticleFromTrend,
 } from '../services/googleTrendsService.js';
 import { listGoogleNews24hByCategory, searchGoogleNews } from '../services/googleNewsAdminService.js';
+import {
+  startBatchPublishJob,
+  getBatchPublishJob,
+  MAX_BATCH_SIZE,
+} from '../services/batchArticleService.js';
 
-async function buildAiDraftResponse(raw, suggestedCategory) {
-  const article = await generateSeoArticle(raw);
-  const hero = await resolveHeroImage({
-    title: article.headline,
-    imageUrl: raw.imageUrl,
-    url: raw.url,
-    sourceName: raw.sourceName,
-    sourceUrl: raw.sourceUrl,
-    category: article.category || suggestedCategory,
-    primaryKeyword: article.primaryKeyword,
-  });
-  const heroCaption = hero ? buildHeroCaption(hero) : '';
-
-  return {
-    title: article.headline,
-    summary: article.summary,
-    body: article.body,
-    category: article.category || suggestedCategory || 'World',
-    tags: article.tags || [],
-    primaryKeyword: article.primaryKeyword || '',
-    seoScore: article.seoScore,
-    geoScore: article.geoScore,
-    readTime: article.readTime,
-    isBreaking: !!article.isBreaking,
-    heroImageUrl: hero?.url || '',
-    heroImageAlt: article.heroImageAlt || heroCaption || article.headline,
-    heroImageCredit: hero?.credit || raw.sourceName,
-    heroImageCreditUrl: hero?.creditUrl || raw.sourceUrl,
-    heroImageSource: hero?.source || 'original',
-    heroImageLicense: hero?.license || null,
-    sourceAttribution: {
-      sourceName: raw.sourceName,
-      sourceUrl: raw.sourceUrl || raw.url,
-    },
-    originalUrl: raw.url,
-    originalTitle: raw.title,
-  };
-}
+export { buildAiDraftResponse } from '../services/aiDraftService.js';
 
 export async function getAiNewsFeed(req, res, next) {
   try {
@@ -245,6 +209,44 @@ export async function generateArticleFromTrend(req, res, next) {
 
     const draft = await buildAiDraftResponse(raw, raw.suggestedCategory);
     res.json(draft);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function startBatchPublish(req, res, next) {
+  try {
+    const { items, delayMs } = req.body || {};
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(400).json({ message: 'items array is required' });
+    }
+    if (items.length > MAX_BATCH_SIZE) {
+      return res.status(400).json({
+        message: `Maximum ${MAX_BATCH_SIZE} articles per batch`,
+      });
+    }
+    const invalid = items.find((item) => !item?.title || !item?.url);
+    if (invalid) {
+      return res.status(400).json({ message: 'Each item needs title and url' });
+    }
+
+    const job = startBatchPublishJob(items, { delayMs });
+    res.status(202).json({
+      ...job,
+      message: `Batch started — ${job.total} articles queued (~${Math.ceil((job.total * job.delayMs) / 60000)} min)`,
+      maxBatch: MAX_BATCH_SIZE,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+export async function getBatchPublishStatus(req, res, next) {
+  try {
+    const job = getBatchPublishJob(req.params.jobId);
+    if (!job) return res.status(404).json({ message: 'Batch job not found or expired' });
+    res.json(job);
   } catch (err) {
     next(err);
   }

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
+import { BatchPublishProgress } from './BatchPublishProgress.jsx';
+import { MAX_BATCH, runBatchPublish } from '@/utils/batchPublish';
 
-const MAX_BATCH = 15;
+const MAX_BATCH_SIZE = MAX_BATCH;
 
 const CATEGORY_COLORS = {
   World: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
@@ -44,33 +46,6 @@ function CategoryBadge({ category }) {
   );
 }
 
-function draftToPayload(draft, item) {
-  return {
-    title: draft.title,
-    summary: draft.summary,
-    body: draft.body,
-    category: draft.category,
-    tags: draft.tags || [],
-    author: 'The Daily Lens Desk',
-    heroImage: draft.heroImageUrl
-      ? {
-          url: draft.heroImageUrl,
-          alt: draft.heroImageAlt || draft.title,
-          credit: draft.heroImageCredit || item.sourceName,
-          creditUrl: draft.heroImageCreditUrl || item.url,
-          source: draft.heroImageSource || 'original',
-        }
-      : undefined,
-    isPublished: true,
-    seoScore: draft.seoScore ?? 7,
-    readTime: draft.readTime,
-    originalUrl: item.url,
-    originalTitle: item.title,
-    source: { name: item.sourceName || 'News source', url: item.sourceUrl || item.url },
-    publishedAt: item.publishedAt,
-  };
-}
-
 async function generateDraftFromItem(item) {
   const { data: draft } = await api.post('/admin/ai/generate-article', {
     title: item.title,
@@ -96,7 +71,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState('');
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [batchJobId, setBatchJobId] = useState(null);
   const [sources, setSources] = useState({ rss: true, newsApi: false, gnews: false });
 
   const selectableItems = useMemo(
@@ -148,7 +123,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
   };
 
   const selectAllVisible = () => {
-    setSelected(new Set(selectableItems.slice(0, MAX_BATCH).map((i) => i.url)));
+    setSelected(new Set(selectableItems.slice(0, MAX_BATCH_SIZE).map((i) => i.url)));
   };
 
   const clearSelection = () => setSelected(new Set());
@@ -193,8 +168,8 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
       toast.error('Select at least one story that is not already imported');
       return;
     }
-    if (toProcess.length > MAX_BATCH) {
-      toast.error(`You can publish up to ${MAX_BATCH} articles at a time`);
+    if (toProcess.length > MAX_BATCH_SIZE) {
+      toast.error(`You can publish up to ${MAX_BATCH_SIZE} articles at a time`);
       return;
     }
 
@@ -203,45 +178,26 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
     }
 
     setBusy(true);
-    setProgress({ done: 0, total: toProcess.length });
-    let published = 0;
-    let failed = 0;
-
-    for (let i = 0; i < toProcess.length; i++) {
-      const item = toProcess[i];
-      setStatusText(`Generating article ${i + 1} of ${toProcess.length}…`);
-      setProgress({ done: i, total: toProcess.length });
-      try {
-        const draft = await generateDraftFromItem(item);
-        setStatusText(`Publishing article ${i + 1} of ${toProcess.length}…`);
-        await api.post('/admin/articles', draftToPayload(draft, item));
-        published += 1;
-        setItems((prev) =>
-          prev.map((row) => (row.url === item.url ? { ...row, alreadyImported: true } : row))
-        );
-      } catch (err) {
-        failed += 1;
-        const msg = err?.response?.data?.message || item.title?.slice(0, 40) || 'Unknown error';
-        toast.error(`Failed: ${msg}`);
-        if (err?.response?.status === 429) {
-          toast.error('Groq rate limit — wait a moment before retrying remaining items');
-          break;
-        }
-      }
-      setProgress({ done: i + 1, total: toProcess.length });
+    setStatusText(`Starting batch publish for ${toProcess.length} articles…`);
+    try {
+      const jobId = await runBatchPublish(toProcess);
+      setBatchJobId(jobId);
+      toast.success(`Batch started — ${toProcess.length} articles (~${Math.ceil(toProcess.length * 0.1)} min)`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not start batch publish');
+      setBusy(false);
+      setStatusText('');
     }
+  };
 
+  const handleBatchComplete = (job) => {
     setBusy(false);
     setStatusText('');
+    setBatchJobId(null);
     setSelected(new Set());
-
-    if (published > 0) {
-      toast.success(`Published ${published} article${published === 1 ? '' : 's'}`);
+    if (job?.published > 0) {
       onClose();
       router.push('/admin/articles');
-    }
-    if (failed > 0 && published === 0) {
-      toast.error('No articles were published');
     }
   };
 
@@ -258,7 +214,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
   const selectedCount = selected.size;
   const allSelectableSelected =
     selectableItems.length > 0 &&
-    selectableItems.slice(0, MAX_BATCH).every((i) => selected.has(i.url));
+    selectableItems.slice(0, MAX_BATCH_SIZE).every((i) => selected.has(i.url));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
@@ -276,7 +232,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
               Latest news from all sources
             </h2>
             <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-              Select multiple stories · Groq writes SEO headlines · bulk publish or add one to editor
+              Select multiple stories · Groq writes SEO headlines · publish up to {MAX_BATCH_SIZE} at once
             </p>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
               Active: RSS
@@ -348,7 +304,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
                 onChange={() => (allSelectableSelected ? clearSelection() : selectAllVisible())}
                 className="rounded border-gray-300"
               />
-              Select all ({Math.min(selectableItems.length, MAX_BATCH)})
+              Select all ({Math.min(selectableItems.length, MAX_BATCH_SIZE)})
             </label>
             {selectedCount > 0 ? (
               <button
@@ -363,14 +319,15 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
           </div>
         ) : null}
 
-        {busy ? (
+        {batchJobId ? (
+          <div className="border-b border-primary-200 px-5 py-3 dark:border-primary-800">
+            <BatchPublishProgress jobId={batchJobId} onComplete={handleBatchComplete} />
+          </div>
+        ) : busy ? (
           <div className="border-b border-primary-200 bg-primary-50 px-5 py-3 text-sm text-primary-900 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-100">
             <div className="flex items-center gap-3">
               <Spinner />
-              <span>
-                {statusText}
-                {progress.total > 1 ? ` (${progress.done}/${progress.total})` : ''}
-              </span>
+              <span>{statusText}</span>
             </div>
           </div>
         ) : null}
@@ -456,7 +413,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-700 dark:bg-gray-950">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
               {selectedCount} selected
-              {selectedCount > 1 ? ` (max ${MAX_BATCH})` : ''}
+              {selectedCount > 1 ? ` (max ${MAX_BATCH_SIZE})` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
               <button

@@ -6,7 +6,9 @@ import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { ArticleDraftPreviewModal } from './ArticleDraftPreviewModal.jsx';
+import { BatchPublishProgress } from './BatchPublishProgress.jsx';
 import { draftToEditorForm, draftToPublishPayload, saveAdminDraft } from '@/utils/adminDraft';
+import { MAX_BATCH, runBatchPublish } from '@/utils/batchPublish';
 import { Sparkles, TrendingUp, Newspaper, Search } from 'lucide-react';
 
 const CATEGORIES = [
@@ -46,29 +48,42 @@ async function requestAiDraftFromTrend(trend, region) {
   return data;
 }
 
-function StoryRow({ story, onWrite, busyKey, label }) {
+function StoryRow({ story, onWrite, busyKey, label, selected, onToggle, bulkMode }) {
   const key = story.url || story.id;
   const busy = busyKey === key;
   return (
     <li className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-gray-900 dark:text-white">{story.title}</p>
-        <p className="mt-0.5 text-xs text-gray-500">
-          {story.sourceName}
-          {story.publishedAt
-            ? ` · ${new Date(story.publishedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-            : ''}
-        </p>
+      <div className="flex min-w-0 flex-1 gap-3">
+        {bulkMode ? (
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onToggle?.(key)}
+            disabled={!!busyKey}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300"
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{story.title}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {story.sourceName}
+            {story.publishedAt
+              ? ` · ${new Date(story.publishedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+              : ''}
+          </p>
+        </div>
       </div>
-      <button
-        type="button"
-        disabled={!!busyKey}
-        onClick={() => onWrite(story, label)}
-        className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-      >
-        {busy ? <Spinner className="h-3.5 w-3.5 border-white/30 border-t-white" /> : <Sparkles className="h-3.5 w-3.5" />}
-        Write by AI
-      </button>
+      {!bulkMode ? (
+        <button
+          type="button"
+          disabled={!!busyKey}
+          onClick={() => onWrite(story, label)}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+        >
+          {busy ? <Spinner className="h-3.5 w-3.5 border-white/30 border-t-white" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Write by AI
+        </button>
+      ) : null}
     </li>
   );
 }
@@ -110,6 +125,9 @@ export function GoogleNewsHub() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [busyKey, setBusyKey] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [batchJobId, setBatchJobId] = useState(null);
+  const [batchBusy, setBatchBusy] = useState(false);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -146,6 +164,10 @@ export function GoogleNewsHub() {
     if (mainTab === 'trends') loadTrends();
     if (mainTab === 'news24h') load24h(region);
   }, [mainTab, region, loadTrends, load24h]);
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [mainTab, activeCategory, region]);
 
   const runSearch = async (e) => {
     e?.preventDefault();
@@ -235,6 +257,54 @@ export function GoogleNewsHub() {
   };
 
   const categoryStories = news24h?.categories?.[activeCategory] || [];
+  const visibleStories = mainTab === 'search' ? searchResults : categoryStories;
+  const storyKey = (story) => story.url || story.id;
+
+  const toggleSelect = (key) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else if (next.size < MAX_BATCH) next.add(key);
+      else toast.error(`Maximum ${MAX_BATCH} stories per batch`);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelected(new Set(visibleStories.slice(0, MAX_BATCH).map(storyKey)));
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const selectedStories = visibleStories.filter((s) => selected.has(storyKey(s)));
+
+  const publishSelected = async () => {
+    if (selectedStories.length === 0) {
+      toast.error('Select at least one story');
+      return;
+    }
+    if (selectedStories.length === 1) {
+      return handleStoryWrite(selectedStories[0], activeCategory);
+    }
+    setBatchBusy(true);
+    try {
+      const jobId = await runBatchPublish(selectedStories);
+      setBatchJobId(jobId);
+      toast.success(`Batch started — ${selectedStories.length} articles`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not start batch');
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const handleBatchComplete = (job) => {
+    setBatchJobId(null);
+    setSelected(new Set());
+    if (job?.published > 0) router.push('/admin/articles');
+  };
+
+  const bulkMode = mainTab === 'news24h' || mainTab === 'search';
 
   return (
     <div className="space-y-6">
@@ -281,6 +351,10 @@ export function GoogleNewsHub() {
         ))}
       </div>
 
+      {batchJobId ? (
+        <BatchPublishProgress jobId={batchJobId} onComplete={handleBatchComplete} />
+      ) : null}
+
       {mainTab === 'news24h' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -303,13 +377,41 @@ export function GoogleNewsHub() {
             })}
           </div>
           <div className="rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-              <h2 className="font-display text-lg font-bold text-gray-900 dark:text-white">
-                {activeCategory} — last 24 hours
-              </h2>
-              <p className="text-xs text-gray-500">
-                {news24h?.total ?? 0} stories across all categories · {region.toUpperCase()} feed
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+              <div>
+                <h2 className="font-display text-lg font-bold text-gray-900 dark:text-white">
+                  {activeCategory} — last 24 hours
+                </h2>
+                <p className="text-xs text-gray-500">
+                  {news24h?.total ?? 0} stories across all categories · {region.toUpperCase()} feed
+                </p>
+              </div>
+              {categoryStories.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <label className="flex cursor-pointer items-center gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={
+                        categoryStories.length > 0 &&
+                        categoryStories.slice(0, MAX_BATCH).every((s) => selected.has(storyKey(s)))
+                      }
+                      onChange={() =>
+                        categoryStories.slice(0, MAX_BATCH).every((s) => selected.has(storyKey(s)))
+                          ? clearSelection()
+                          : selectAllVisible()
+                      }
+                      disabled={batchBusy || !!batchJobId}
+                      className="rounded border-gray-300"
+                    />
+                    Select up to {MAX_BATCH}
+                  </label>
+                  {selected.size > 0 ? (
+                    <button type="button" onClick={clearSelection} className="text-primary-700 hover:underline">
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             {loading ? (
               <div className="flex justify-center py-12">
@@ -326,6 +428,9 @@ export function GoogleNewsHub() {
                     onWrite={handleStoryWrite}
                     busyKey={busyKey}
                     label={activeCategory}
+                    bulkMode={bulkMode}
+                    selected={selected.has(storyKey(story))}
+                    onToggle={toggleSelect}
                   />
                 ))}
               </ul>
@@ -400,6 +505,9 @@ export function GoogleNewsHub() {
                     onWrite={handleStoryWrite}
                     busyKey={busyKey}
                     label="search"
+                    bulkMode={bulkMode}
+                    selected={selected.has(storyKey(story))}
+                    onToggle={toggleSelect}
                   />
                 ))}
               </ul>
@@ -407,6 +515,32 @@ export function GoogleNewsHub() {
           </div>
         </div>
       )}
+
+      {bulkMode && selected.size > 0 && !batchJobId ? (
+        <div className="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white px-5 py-4 shadow-lg dark:border-primary-800 dark:bg-gray-900">
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+            {selected.size} selected (max {MAX_BATCH})
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              disabled={batchBusy}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={publishSelected}
+              disabled={batchBusy}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+            >
+              {batchBusy ? 'Starting…' : `Publish ${selected.size} articles`}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <ArticleDraftPreviewModal
         open={previewOpen}
