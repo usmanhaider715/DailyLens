@@ -6,6 +6,7 @@ import { slugify } from '../utils/slugify.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { emitBreakingNews } from '../services/socketService.js';
 import { buildAiDraftResponse } from '../services/aiDraftService.js';
+import { isGroqRateLimitError, groqErrorMessage } from '../services/groqService.js';
 
 const DEFAULT_DELAY_MS = 6000;
 const MAX_BATCH_SIZE = 30;
@@ -18,9 +19,7 @@ function sleep(ms) {
 }
 
 function isRateLimitError(err) {
-  const status = err?.response?.status;
-  const msg = String(err?.message || err?.response?.data?.message || '').toLowerCase();
-  return status === 429 || msg.includes('rate limit');
+  return isGroqRateLimitError(err);
 }
 
 function draftToArticleInput(draft, raw) {
@@ -144,7 +143,7 @@ async function runBatchJob(jobId, items, delayMs = DEFAULT_DELAY_MS) {
         ok: false,
         url: item.url,
         title: item.title,
-        message: err?.response?.data?.message || err.message || 'Failed',
+        message: groqErrorMessage(err),
       });
       if (isRateLimitError(err)) {
         job.rateLimited = true;

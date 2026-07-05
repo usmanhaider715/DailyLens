@@ -1,5 +1,6 @@
 import { fetchLatestNewsFeedForAdmin } from '../services/newsService.js';
 import { buildAiDraftResponse } from '../services/aiDraftService.js';
+import { groqErrorMessage, isGroqRateLimitError } from '../services/groqService.js';
 import { searchHeroImageCandidates } from '../services/imageDiscoveryService.js';
 import {
   listGoogleTrends,
@@ -63,13 +64,10 @@ export async function generateArticleFromStory(req, res, next) {
     const draft = await buildAiDraftResponse(raw, suggestedCategory);
     res.json(draft);
   } catch (err) {
-    const msg =
-      err?.response?.data?.error?.message || err.message || 'AI generation failed';
+    const msg = groqErrorMessage(err);
     const status = err?.response?.status;
-    if (status === 429) {
-      return res.status(429).json({
-        message: 'Groq rate limit reached. Wait a moment and try again.',
-      });
+    if (status === 429 || isGroqRateLimitError(err)) {
+      return res.status(429).json({ message: msg });
     }
     if (status === 401) {
       return res.status(500).json({
@@ -167,10 +165,10 @@ export async function generateArticleFromRoughText(req, res, next) {
     const draft = await buildAiDraftResponse(raw, category);
     res.json(draft);
   } catch (err) {
-    const msg = err?.response?.data?.error?.message || err.message || 'AI generation failed';
+    const msg = groqErrorMessage(err);
     const status = err?.response?.status;
-    if (status === 429) {
-      return res.status(429).json({ message: 'Groq rate limit reached. Wait a moment and try again.' });
+    if (status === 429 || isGroqRateLimitError(err)) {
+      return res.status(429).json({ message: msg });
     }
     next(new Error(msg));
   }
