@@ -10,7 +10,7 @@ import { fetchLatestNewsFeedForAdmin, RSS_FEEDS } from '../services/newsService.
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { getEasternDateParts, formatEasternTime } from '../utils/usEasternTime.js';
 import { logger } from '../utils/logger.js';
-import { isAiRateLimitError, parseRetryAfterMs } from './groqService.js';
+import { isAiRateLimitError, isAiContentError, parseRetryAfterMs } from './groqService.js';
 
 /** Categories included in each auto-share run (articlesPerCategory each). */
 export const AUTO_SHARE_CATEGORIES = [
@@ -228,7 +228,7 @@ async function publishFromFeedItem(item, category) {
   return Article.create(payload);
 }
 
-async function publishFromFeedItemWithRetry(item, category, { job, onWaiting } = {}, maxAttempts = 3) {
+async function publishFromFeedItemWithRetry(item, category, { job, onWaiting } = {}, maxAttempts = 4) {
   let lastErr;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     assertNotStopped(job);
@@ -249,10 +249,13 @@ async function publishFromFeedItemWithRetry(item, category, { job, onWaiting } =
         clearSkipFlag(job);
         throw new SkipArticleError();
       }
-      if (attempt < maxAttempts - 1 && isAiRateLimitError(err)) {
-        const waitMs = parseRetryAfterMs(err);
+      const retryable = isAiRateLimitError(err) || isAiContentError(err);
+      if (attempt < maxAttempts - 1 && retryable) {
+        const waitMs = isAiRateLimitError(err) ? parseRetryAfterMs(err) : 3000 + attempt * 2000;
         onWaiting?.({ waitMs, title: item.title, category });
-        logger.warn(`Auto-share AI rate limited — waiting ${Math.round(waitMs / 1000)}s before retry`);
+        logger.warn(
+          `Auto-share AI ${isAiRateLimitError(err) ? 'rate limited' : 'content error'} — waiting ${Math.round(waitMs / 1000)}s before retry (${attempt + 1}/${maxAttempts})`,
+        );
         await sleepInterruptible(waitMs, job);
         continue;
       }

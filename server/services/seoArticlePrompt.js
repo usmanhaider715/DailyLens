@@ -50,7 +50,7 @@ Source: ${raw.sourceName || 'Unknown'}
 Published: ${raw.publishedAt || 'unknown'}
 URL: ${sourceUrl}
 Description: ${raw.description || '(none)'}
-Content: ${(raw.content || raw.description || '').slice(0, 8000)}
+Content: ${(raw.content || raw.description || '').slice(0, 5000)}
 ${suggested}
 
 Editorial tone: ${tone}
@@ -86,4 +86,25 @@ RETURN JSON (exact keys — include followUpLinks and faqSchema):
     { "text": "", "url": "", "linkPhrase": "" }
   ]
 }`;
+}
+
+/** Shorter prompt for AI retry when full JSON output was truncated or malformed. */
+export function buildCompactSeoArticleUserPrompt(raw, tone, minW, maxW) {
+  const sourceUrl = raw.sourceUrl || raw.url || '';
+  const suggested = raw.suggestedCategory ? `Category: "${raw.suggestedCategory}".` : '';
+
+  return `Rewrite this news item. Return ONE valid JSON object only — no markdown, no extra text.
+Keep followUpLinks to exactly 3 items (short text + url). Keep faqSchema to 2 items.
+Target body: ${minW}–${maxW} words in HTML.
+
+Title: ${raw.title}
+Source: ${raw.sourceName || 'Unknown'}
+URL: ${sourceUrl}
+Description: ${(raw.description || '').slice(0, 1500)}
+Content: ${(raw.content || raw.description || '').slice(0, 3500)}
+${suggested}
+Tone: ${tone}
+Categories: ${ARTICLE_CATEGORIES.join(', ')}
+
+JSON keys: headline, subheadline, slug, metaTitle, metaDescription, summary, body, category, tags, primaryKeyword, secondaryKeywords, entityKeywords, isBreaking, readTime, seoScore, geoScore, imagePrompt, heroImageAlt, faqSchema (2), followUpLinks (3).`;
 }

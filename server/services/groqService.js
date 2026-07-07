@@ -2,10 +2,15 @@ import axios from 'axios';
 import { getSiteSettings } from '../models/SiteSettings.js';
 import { normalizeSeoArticleOutput } from '../utils/seoArticleNormalize.js';
 import { finalizeSeoArticleBody } from '../utils/finalizeSeoArticle.js';
-import { SEO_ARTICLE_SYSTEM, buildSeoArticleUserPrompt } from './seoArticlePrompt.js';
+import {
+  SEO_ARTICLE_SYSTEM,
+  buildSeoArticleUserPrompt,
+  buildCompactSeoArticleUserPrompt,
+} from './seoArticlePrompt.js';
 import {
   getOpenRouterConfig,
   isOpenRouterConfigured,
+  isOpenRouterContentError,
   isOpenRouterRateLimitError,
   isOpenRouterRetryableError,
   openRouterChatCompletion,
@@ -17,6 +22,10 @@ import { logger } from '../utils/logger.js';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 const DEFAULT_FALLBACK_MODEL = 'llama-3.1-8b-instant';
+const ARTICLE_MAX_TOKENS =
+  Number(process.env.OPENROUTER_MAX_TOKENS) ||
+  Number(process.env.GROQ_MAX_TOKENS) ||
+  6000;
 
 function parseJsonFromText(text) {
   return parseJsonFromModelText(text);
@@ -38,6 +47,10 @@ export function isGroqRateLimitError(err) {
 
 export function isAiRateLimitError(err) {
   return isOpenRouterRateLimitError(err) || isGroqRateLimitError(err);
+}
+
+export function isAiContentError(err) {
+  return isOpenRouterContentError(err);
 }
 
 /** Parse "try again in 37.32s" from Groq/OpenRouter 429 messages */
@@ -65,28 +78,35 @@ function modelChain() {
   return [...new Set([primary, fallback].filter(Boolean))];
 }
 
-async function requestGroq(apiKey, model, userPrompt) {
+function shouldFallbackFromOpenRouterToGroq(err) {
+  if (!process.env.GROQ_API_KEY) return false;
+  if (isOpenRouterRetryableError(err) || isOpenRouterContentError(err)) return true;
+  const status = err?.response?.status;
+  return status === 402 || status === 403;
+}
+
+async function requestGroq(apiKey, model, userPrompt, { jsonMode = true } = {}) {
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: SEO_ARTICLE_SYSTEM },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: ARTICLE_MAX_TOKENS,
+    temperature: 0.3,
+  };
+  if (jsonMode) {
+    body.response_format = { type: 'json_object' };
+  }
+
   try {
-    const { data } = await axios.post(
-      GROQ_URL,
-      {
-        model,
-        messages: [
-          { role: 'system', content: SEO_ARTICLE_SYSTEM },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4000,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
+    const { data } = await axios.post(GROQ_URL, body, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 120000,
-      }
-    );
+      timeout: 120000,
+    });
 
     const content = data?.choices?.[0]?.message?.content;
     if (!content) {
@@ -114,51 +134,76 @@ async function finalizeFromParsed(parsed, rawArticle, modelLabel) {
   return finalized;
 }
 
-async function generateWithOpenRouter(userPrompt, rawArticle) {
+async function parseAndFinalize(content, rawArticle, modelLabel) {
+  const parsed = parseJsonFromText(content);
+  return finalizeFromParsed(parsed, rawArticle, modelLabel);
+}
+
+async function generateWithOpenRouterAttempt(userPrompt, rawArticle, { jsonMode = true, temperature = 0.3 } = {}) {
   const { model } = getOpenRouterConfig();
   const { content, model: usedModel } = await openRouterChatCompletion({
     messages: [
       { role: 'system', content: SEO_ARTICLE_SYSTEM },
       { role: 'user', content: userPrompt },
     ],
-    jsonMode: true,
-    maxTokens: Number(process.env.OPENROUTER_MAX_TOKENS) || Number(process.env.GROQ_MAX_TOKENS) || 4000,
+    jsonMode,
+    temperature,
+    maxTokens: ARTICLE_MAX_TOKENS,
   });
-
-  let parsed;
-  try {
-    parsed = parseJsonFromText(content);
-  } catch (err) {
-    logger.error('OpenRouter SEO article invalid JSON', err.message);
-    throw err;
-  }
-
-  return finalizeFromParsed(parsed, rawArticle, usedModel || model);
+  return parseAndFinalize(content, rawArticle, usedModel || model);
 }
 
-async function generateWithGroqModel(apiKey, model, userPrompt, rawArticle) {
+async function generateWithOpenRouter(rawArticle, userPrompt, compactPrompt) {
+  const attempts = [
+    { prompt: userPrompt, jsonMode: true, temperature: 0.3, label: 'full+json' },
+    { prompt: userPrompt, jsonMode: false, temperature: 0.2, label: 'full+plain' },
+    { prompt: compactPrompt, jsonMode: false, temperature: 0.2, label: 'compact+plain' },
+  ];
+
   let lastErr;
-  const maxAttempts = 3;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  for (const attempt of attempts) {
     try {
-      const content = await requestGroq(apiKey, model, userPrompt);
-      const parsed = parseJsonFromText(content);
-      return finalizeFromParsed(parsed, rawArticle, model);
+      return await generateWithOpenRouterAttempt(attempt.prompt, rawArticle, {
+        jsonMode: attempt.jsonMode,
+        temperature: attempt.temperature,
+      });
     } catch (err) {
       lastErr = err;
-      if (attempt < maxAttempts - 1 && isGroqRateLimitError(err)) {
-        const waitMs = parseRetryAfterMs(err);
-        logger.warn(`Groq ${model} rate limited — waiting ${Math.round(waitMs / 1000)}s before retry`);
-        await sleep(waitMs);
-        continue;
+      logger.warn(`OpenRouter SEO attempt failed (${attempt.label})`, err.message);
+      if (!isOpenRouterContentError(err) && !isOpenRouterRetryableError(err)) {
+        throw err;
       }
-      throw err;
     }
   }
-  throw lastErr;
+
+  throw lastErr || new Error('OpenRouter SEO article generation failed');
 }
 
-async function generateSeoArticleViaGroq(rawArticle, userPrompt) {
+async function generateWithGroqModel(apiKey, model, userPrompt, rawArticle, compactPrompt) {
+  const prompts = [userPrompt, compactPrompt];
+  let lastErr;
+
+  for (const prompt of prompts) {
+    for (const jsonMode of [true, false]) {
+      try {
+        const content = await requestGroq(apiKey, model, prompt, { jsonMode });
+        return await parseAndFinalize(content, rawArticle, model);
+      } catch (err) {
+        lastErr = err;
+        if (isGroqRateLimitError(err)) throw err;
+        if (isOpenRouterContentError(err) && jsonMode) {
+          logger.warn(`Groq ${model} JSON mode failed — retrying without response_format`);
+          continue;
+        }
+        logger.warn(`Groq ${model} attempt failed`, err.message);
+      }
+    }
+  }
+
+  throw lastErr || new Error(`Groq ${model} generation failed`);
+}
+
+async function generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error('GROQ_API_KEY is not configured on the server');
@@ -170,13 +215,13 @@ async function generateSeoArticleViaGroq(rawArticle, userPrompt) {
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
     try {
-      return await generateWithGroqModel(apiKey, model, userPrompt, rawArticle);
+      return await generateWithGroqModel(apiKey, model, userPrompt, rawArticle, compactPrompt);
     } catch (err) {
       lastErr = err;
       const hasFallback = i < models.length - 1;
-      if (hasFallback && isGroqRateLimitError(err)) {
-        const waitMs = parseRetryAfterMs(err, 5000);
-        logger.warn(`Groq ${model} exhausted — trying ${models[i + 1]} after ${Math.round(waitMs / 1000)}s`);
+      if (hasFallback && (isGroqRateLimitError(err) || isOpenRouterContentError(err))) {
+        const waitMs = isGroqRateLimitError(err) ? parseRetryAfterMs(err, 5000) : 2000;
+        logger.warn(`Groq ${model} failed — trying ${models[i + 1]} after ${Math.round(waitMs / 1000)}s`);
         await sleep(waitMs);
         continue;
       }
@@ -187,21 +232,20 @@ async function generateSeoArticleViaGroq(rawArticle, userPrompt) {
   throw lastErr || new Error('Groq generation failed');
 }
 
-async function generateSeoArticleWithFallbacks(rawArticle, userPrompt) {
+async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt) {
   if (isOpenRouterConfigured()) {
     try {
-      return await generateWithOpenRouter(userPrompt, rawArticle);
+      return await generateWithOpenRouter(rawArticle, userPrompt, compactPrompt);
     } catch (err) {
-      const msg = openRouterErrorMessage(err);
-      if (process.env.GROQ_API_KEY && isOpenRouterRetryableError(err)) {
-        logger.warn('OpenRouter failed — falling back to Groq', msg);
+      if (shouldFallbackFromOpenRouterToGroq(err)) {
+        logger.warn('OpenRouter failed — falling back to Groq', openRouterErrorMessage(err));
         try {
-          return await generateSeoArticleViaGroq(rawArticle, userPrompt);
+          return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
         } catch (groqErr) {
-          if (isGroqRateLimitError(groqErr)) {
-            logger.warn('Groq also rate limited after OpenRouter — retrying OpenRouter once');
+          if (isGroqRateLimitError(groqErr) && isOpenRouterConfigured()) {
+            logger.warn('Groq also rate limited after OpenRouter — retrying OpenRouter compact prompt');
             await sleep(parseRetryAfterMs(groqErr));
-            return generateWithOpenRouter(userPrompt, rawArticle);
+            return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
           }
           throw groqErr;
         }
@@ -211,11 +255,11 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt) {
   }
 
   try {
-    return await generateSeoArticleViaGroq(rawArticle, userPrompt);
+    return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
   } catch (groqErr) {
-    if (isOpenRouterConfigured() && isGroqRateLimitError(groqErr)) {
-      logger.warn('All Groq models rate limited — falling back to OpenRouter', groqErrorMessage(groqErr));
-      return generateWithOpenRouter(userPrompt, rawArticle);
+    if (isOpenRouterConfigured() && (isGroqRateLimitError(groqErr) || isOpenRouterContentError(groqErr))) {
+      logger.warn('Groq failed — falling back to OpenRouter', groqErrorMessage(groqErr));
+      return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
     }
     throw groqErr;
   }
@@ -227,8 +271,9 @@ export async function generateSeoArticle(rawArticle) {
   const minW = settings.minWordCount ?? 500;
   const maxW = settings.maxWordCount ?? 800;
   const userPrompt = buildSeoArticleUserPrompt(rawArticle, tone, minW, maxW);
+  const compactPrompt = buildCompactSeoArticleUserPrompt(rawArticle, tone, minW, maxW);
 
-  return generateSeoArticleWithFallbacks(rawArticle, userPrompt);
+  return generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt);
 }
 
 export { rewriteArticle } from '../lib/openrouter.js';

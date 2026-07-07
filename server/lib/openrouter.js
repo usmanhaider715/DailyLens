@@ -50,22 +50,121 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function stripMarkdownFences(text) {
+  return String(text || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .trim();
+}
+
+/** Close unbalanced brackets/braces — helps when model output is truncated. */
+function repairTruncatedJson(text) {
+  let s = stripMarkdownFences(text);
+  s = s.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
+  s = s.replace(/,\s*$/, '');
+
+  const stack = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (c === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
+  }
+
+  while (stack.length) s += stack.pop();
+  return s;
+}
+
+function extractBalancedJsonObject(text) {
+  const s = stripMarkdownFences(text);
+  const start = s.indexOf('{');
+  if (start === -1) throw new Error('No JSON object found');
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (c === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (c === '{') depth += 1;
+    else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+
+  return repairTruncatedJson(s.slice(start));
+}
+
+export function isOpenRouterContentError(err) {
+  const msg = String(err?.message || '');
+  return (
+    /invalid json|empty response|missing required|json at position|no json object/i.test(msg) ||
+    /unexpected token|unexpected end of json/i.test(msg)
+  );
+}
+
 /** Safely extract JSON object from model text output. */
 export function parseJsonFromModelText(text) {
-  const trimmed = String(text || '').trim();
+  const trimmed = stripMarkdownFences(text);
   if (!trimmed) {
     throw new Error('Empty response from OpenRouter');
   }
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const start = trimmed.indexOf('{');
-    const end = trimmed.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) {
-      throw new Error('Invalid JSON in OpenRouter response');
+
+  const strategies = [
+    () => JSON.parse(trimmed),
+    () => JSON.parse(extractBalancedJsonObject(trimmed)),
+    () => JSON.parse(repairTruncatedJson(trimmed)),
+    () => {
+      const start = trimmed.indexOf('{');
+      const end = trimmed.lastIndexOf('}');
+      if (start === -1 || end === -1 || end <= start) {
+        throw new Error('Invalid JSON in OpenRouter response');
+      }
+      return JSON.parse(trimmed.slice(start, end + 1));
+    },
+  ];
+
+  let lastErr;
+  for (const strategy of strategies) {
+    try {
+      return strategy();
+    } catch (err) {
+      lastErr = err;
     }
-    return JSON.parse(trimmed.slice(start, end + 1));
   }
+
+  throw new Error(`Invalid JSON in OpenRouter response${lastErr?.message ? `: ${lastErr.message}` : ''}`);
 }
 
 function buildHeaders({ apiKey, siteUrl, appName }) {
