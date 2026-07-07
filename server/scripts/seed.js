@@ -37,10 +37,17 @@ const adPositions = [
 const rssSources = [
   { name: 'BBC', type: 'rss', url: 'http://feeds.bbci.co.uk/news/rss.xml', category: 'World' },
   { name: 'Reuters', type: 'rss', url: 'https://feeds.reuters.com/reuters/topNews', category: 'World' },
+  { name: 'Google Trends US', type: 'rss', url: 'https://trends.google.com/trending/rss?geo=US', category: 'World' },
+  { name: 'Google Trends UK', type: 'rss', url: 'https://trends.google.com/trending/rss?geo=GB', category: 'World' },
   { name: 'TechCrunch', type: 'rss', url: 'https://techcrunch.com/feed/', category: 'Technology' },
   { name: 'ESPN', type: 'rss', url: 'https://www.espn.com/espn/rss/news', category: 'Sports' },
   { name: 'CoinDesk', type: 'rss', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', category: 'Crypto' },
   { name: 'Al Jazeera', type: 'rss', url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'World' },
+  { name: 'Variety', type: 'rss', url: 'https://variety.com/feed/', category: 'Entertainment' },
+  { name: 'Hollywood Reporter', type: 'rss', url: 'https://www.hollywoodreporter.com/feed/', category: 'Entertainment' },
+  { name: 'Deadline', type: 'rss', url: 'https://deadline.com/feed/', category: 'Entertainment' },
+  { name: 'Rolling Stone', type: 'rss', url: 'https://www.rollingstone.com/feed/', category: 'Entertainment' },
+  { name: 'Entertainment Weekly', type: 'rss', url: 'https://ew.com/feed/', category: 'Entertainment' },
 ];
 
 async function seedDemoArticles() {

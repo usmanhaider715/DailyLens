@@ -9,6 +9,15 @@ export function formatArticleDate(date) {
   }
 }
 
+export function formatArticleDateTime(date) {
+  if (!date) return '';
+  try {
+    return format(new Date(date), 'MMM d, yyyy · h:mm a');
+  } catch {
+    return '';
+  }
+}
+
 export function formatRelative(date) {
   if (!date) return '';
   try {

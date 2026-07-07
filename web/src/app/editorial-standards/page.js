@@ -32,6 +32,13 @@ export default function EditorialStandardsPage() {
           reviewed before publication. We do not publish unverified claims as fact.
         </p>
 
+        <h2 className="mt-10 font-display text-xl font-bold text-gray-900 dark:text-white">Images &amp; copyright</h2>
+        <p className="mt-3 leading-relaxed text-gray-600 dark:text-gray-300">
+          We publish original editorial text — not full republished articles. Hero and listicle images are
+          sourced from Creative Commons, Wikimedia Commons, or Google Images (free-use filter) with credits on
+          each page. AI-generated images are used only when no suitable royalty-free photo is available.
+        </p>
+
         <h2 className="mt-10 font-display text-xl font-bold text-gray-900 dark:text-white">Corrections</h2>
         <p className="mt-3 leading-relaxed text-gray-600 dark:text-gray-300">
           If you spot an error, email{' '}

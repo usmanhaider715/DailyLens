@@ -24,7 +24,9 @@ export default function DisclaimerPage() {
         source lists unless explicitly stated.
       </p>
       <p>
-        <strong>Copyright.</strong> Fair use and attribution apply to excerpts; contact us for takedown requests.
+        <strong>Copyright &amp; content.</strong> The Daily Lens publishes original editorial rewrites and listicles.
+        We do not republish full copyrighted articles. Images use Creative Commons, Wikimedia Commons, or
+        royalty-free sources with attribution. Contact us for takedown requests.
       </p>
     </LegalPageShell>
   );

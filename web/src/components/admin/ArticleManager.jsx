@@ -5,7 +5,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
-import { formatArticleDate } from '../../utils/formatDate.js';
+import { formatArticleDateTime } from '../../utils/formatDate.js';
 import { SeoScoreBadge } from '../common/SeoScoreBadge.jsx';
 import { HeroImage } from '../common/HeroImage.jsx';
 
@@ -246,7 +246,12 @@ export function ArticleManager() {
                   <SeoScoreBadge score={a.seoScore} size="sm" />
                 </td>
                 <td className="px-3 py-2">{a.views}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{formatArticleDate(a.publishedAt)}</td>
+                <td
+                  className="px-3 py-2 whitespace-nowrap"
+                  title={a.publishedAt ? new Date(a.publishedAt).toISOString() : undefined}
+                >
+                  {formatArticleDateTime(a.publishedAt)}
+                </td>
                 <td className="px-3 py-2 text-center">
                   <input
                     type="checkbox"

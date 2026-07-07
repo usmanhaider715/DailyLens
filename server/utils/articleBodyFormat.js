@@ -133,6 +133,7 @@ export function buildArticleFooterHtml({ sourceName, sourceUrl, hero }) {
 <div class="article-legal-footer">
   <p class="article-legal-line"><span class="article-legal-label">Sources:</span> <a href="${escapeHtml(storyLink)}" rel="noopener noreferrer">${escapeHtml(publisher)}</a></p>
   <p class="article-legal-line"><span class="article-legal-label">Editorial notice:</span> Independent editorial coverage by The Daily Lens based on publicly reported information. We are not affiliated with the original publisher.</p>
+  <p class="article-legal-line"><span class="article-legal-label">Copyright &amp; images:</span> Article text is original editorial content. Images are sourced from royalty-free, Creative Commons, or Wikimedia Commons libraries where noted, or AI-generated placeholders when no suitable free image is found.</p>
   ${imageLine ? `<p class="article-legal-line"><span class="article-legal-label">Image credit:</span> ${imageLine}</p>` : ''}
 </div>`;
 }

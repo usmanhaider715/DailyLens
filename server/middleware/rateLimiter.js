@@ -2,19 +2,21 @@ import rateLimit from 'express-rate-limit';
 
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 200 : 300,
+  max: process.env.NODE_ENV === 'production' ? 200 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests. Please try again later.' },
   skip: (req) => {
-    const p = req.path;
+    const p = req.path || '';
+    const url = req.originalUrl || '';
     return (
       p === '/robots.txt' ||
       p === '/feed.xml' ||
       p === '/llms.txt' ||
       p === '/health' ||
       p === '/sitemap.xml' ||
-      /^\/sitemap-.*\.xml$/.test(p)
+      /^\/sitemap-.*\.xml$/.test(p) ||
+      /\/admin\/auto-share\/run-status\//.test(url)
     );
   },
 });

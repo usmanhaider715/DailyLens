@@ -57,6 +57,8 @@ const articleSchema = new mongoose.Schema(
     isPaused: { type: Boolean, default: false, index: true },
     views: { type: Number, default: 0 },
     publishedAt: { type: Date, default: Date.now, index: true },
+    /** Set when auto-share features or publishes — excluded from future auto-share runs */
+    lastAutoSharedAt: { type: Date, index: true },
     aiProcessedAt: Date,
     language: { type: String, default: 'en' },
     sourceType: { type: String, enum: ['manual', 'automated'], default: 'automated' },

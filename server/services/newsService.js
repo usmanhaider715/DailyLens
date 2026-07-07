@@ -13,12 +13,14 @@ const parser = new Parser({
 });
 
 /** Per-category RSS — works without NewsAPI/GNews keys. */
-const RSS_FEEDS = [
+export const RSS_FEEDS = [
   { name: 'BBC Top', url: 'http://feeds.bbci.co.uk/news/rss.xml', category: 'World' },
   { name: 'BBC World', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', category: 'World' },
   { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'World' },
   { name: 'Guardian World', url: 'https://www.theguardian.com/world/rss', category: 'World' },
   { name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'World' },
+  { name: 'Google Trends US', url: 'https://trends.google.com/trending/rss?geo=US', category: 'World' },
+  { name: 'Google Trends UK', url: 'https://trends.google.com/trending/rss?geo=GB', category: 'World' },
   { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'Technology' },
   { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'Technology' },
   { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', category: 'Technology' },
@@ -46,6 +48,10 @@ const RSS_FEEDS = [
     category: 'Entertainment',
   },
   { name: 'Variety', url: 'https://variety.com/feed/', category: 'Entertainment' },
+  { name: 'Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'Entertainment' },
+  { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'Entertainment' },
+  { name: 'Rolling Stone', url: 'https://www.rollingstone.com/feed/', category: 'Entertainment' },
+  { name: 'Entertainment Weekly', url: 'https://ew.com/feed/', category: 'Entertainment' },
   { name: 'BBC Politics', url: 'http://feeds.bbci.co.uk/news/politics/rss.xml', category: 'Politics' },
   { name: 'Politico', url: 'https://rss.politico.com/politics-news.xml', category: 'Politics' },
   { name: 'The Hill', url: 'https://thehill.com/news/feed/', category: 'Politics' },

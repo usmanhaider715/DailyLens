@@ -1,6 +1,9 @@
 import { fetchLatestNewsFeedForAdmin } from '../services/newsService.js';
 import { buildAiDraftResponse } from '../services/aiDraftService.js';
-import { groqErrorMessage, isGroqRateLimitError } from '../services/groqService.js';
+import { buildListicleDraftResponse } from '../services/listicleDraftService.js';
+import { isListicleRoughText } from '../services/seoListiclePrompt.js';
+import { groqErrorMessage, isAiRateLimitError, isGroqRateLimitError } from '../services/groqService.js';
+import { openRouterErrorMessage, isOpenRouterRateLimitError } from '../lib/openrouter.js';
 import { searchHeroImageCandidates } from '../services/imageDiscoveryService.js';
 import {
   listGoogleTrends,
@@ -96,17 +99,17 @@ export async function generateArticleFromStory(req, res, next) {
     const draft = await buildAiDraftResponse(raw, suggestedCategory);
     res.json(draft);
   } catch (err) {
-    const msg = groqErrorMessage(err);
+    const msg = openRouterErrorMessage(err) || groqErrorMessage(err);
     const status = err?.response?.status;
-    if (status === 429 || isGroqRateLimitError(err)) {
+    if (status === 429 || isAiRateLimitError(err) || isOpenRouterRateLimitError(err) || isGroqRateLimitError(err)) {
       return res.status(429).json({ message: msg });
     }
     if (status === 401) {
       return res.status(500).json({
-        message: 'Invalid GROQ_API_KEY. Check server .env configuration.',
+        message: 'Invalid AI API key. Check OPENROUTER_API_KEY or GROQ_API_KEY in server .env.',
       });
     }
-    if (/GROQ|not configured/i.test(msg)) {
+    if (/OPENROUTER|GROQ|not configured/i.test(msg)) {
       return res.status(500).json({ message: msg });
     }
     next(new Error(msg));
@@ -194,12 +197,14 @@ export async function generateArticleFromRoughText(req, res, next) {
       suggestedCategory: category,
     };
 
-    const draft = await buildAiDraftResponse(raw, category);
+    const draft = isListicleRoughText(text)
+      ? await buildListicleDraftResponse(raw, category)
+      : await buildAiDraftResponse(raw, category);
     res.json(draft);
   } catch (err) {
-    const msg = groqErrorMessage(err);
+    const msg = openRouterErrorMessage(err) || groqErrorMessage(err);
     const status = err?.response?.status;
-    if (status === 429 || isGroqRateLimitError(err)) {
+    if (status === 429 || isAiRateLimitError(err) || isOpenRouterRateLimitError(err) || isGroqRateLimitError(err)) {
       return res.status(429).json({ message: msg });
     }
     next(new Error(msg));

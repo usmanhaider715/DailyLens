@@ -106,7 +106,7 @@ async function persistProcessed(raw, parsed) {
     parsed.category,
   );
   if (!isSourceNewsHero(normalizedHero)) {
-    if (process.env.GROQ_API_KEY) {
+    if (process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY) {
       try {
         featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
       } catch {
@@ -130,7 +130,7 @@ async function persistProcessed(raw, parsed) {
 }
 
 async function rewriteArticle(raw) {
-  if (process.env.GROQ_API_KEY) {
+  if (process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY) {
     return generateSeoArticle(raw);
   }
   return processArticle(raw);

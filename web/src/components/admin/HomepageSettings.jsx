@@ -113,18 +113,24 @@ export function HomepageSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time bootstrap
   }, []);
 
+  const heroMode = settings?.homepageHeroMode || 'featured';
+  const us = useWeatherCountryDetail(heroMode === 'weather' ? 'us' : null).detail;
+  const uk = useWeatherCountryDetail(heroMode === 'weather' ? 'uk' : null).detail;
+
   useEffect(() => {
-    if (!settings || !locationCatalog || settings.homepageHeroMode !== 'weather') return;
+    if (!settings || settings.homepageHeroMode !== 'weather') return;
     const cid = settings.homepageWeatherCityId || '';
-    const inferred =
-      settings.homepageWeatherCountry === 'uk'
-        ? inferUkRegionIdFromCityComposite(
-            { countries: uk ? [{ id: 'uk', regions: uk.regions }] : [] },
-            cid,
-          )
-        : '';
-    setUkRmaRegion(inferred);
-  }, [settings, uk]);
+    if (settings.homepageWeatherCountry !== 'uk') {
+      setUkRmaRegion('');
+      return;
+    }
+    setUkRmaRegion(inferUkRegionIdFromCityComposite(locationCatalog, cid));
+  }, [
+    settings?.homepageHeroMode,
+    settings?.homepageWeatherCountry,
+    settings?.homepageWeatherCityId,
+    locationCatalog,
+  ]);
 
   /** Keep preview synced when editors change preset fields while on weather hero */
   useEffect(() => {
@@ -152,11 +158,6 @@ export function HomepageSettings() {
   }, [matches]);
 
   const selectedMatch = matches.find((m) => m.id === settings?.homepageLiveMatchId);
-  const heroMode = settings?.homepageHeroMode || 'featured';
-
-  const us = useWeatherCountryDetail(heroMode === 'weather' ? 'us' : null).detail;
-  const uk = useWeatherCountryDetail(heroMode === 'weather' ? 'uk' : null).detail;
-  const ukRegionSel = uk?.regions?.find((r) => r.id === ukRmaRegion);
 
   const save = async () => {
     setSaving(true);
@@ -172,6 +173,7 @@ export function HomepageSettings() {
 
   if (loading || !settings) return <Spinner />;
 
+  const ukRegionSel = uk?.regions?.find((r) => r.id === ukRmaRegion);
   const visitorMode = settings.homepageWeatherUseVisitorLocation !== false;
 
   return (

@@ -138,8 +138,10 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
           <h2 className="font-display text-lg font-bold text-gray-900 dark:text-white">Write neat</h2>
         </div>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Paste rough notes copied from another source. Groq rewrites them into a full SEO article — preview first,
-          then publish or edit below. Separate multiple articles with a line containing only{' '}
+          Paste rough notes — Groq rewrites them into a full SEO article. For listicles (e.g.{' '}
+          <em>Top 5 Jackie Chan action movies</em>), each item gets its own section with bullet-style
+          headings and free Creative Commons images from Google/Wikimedia. Preview first, then publish.
+          Separate multiple articles with a line containing only{' '}
           <code className="rounded bg-white/80 px-1 dark:bg-gray-900">---</code>.
         </p>
 
@@ -155,7 +157,7 @@ export function WriteNeatSection({ onApplyToForm, onPublished }) {
             rows={8}
             value={roughText}
             onChange={(e) => setRoughText(e.target.value)}
-            placeholder="Paste headlines, paragraphs, bullet points, or quotes from your source…"
+            placeholder="Paste headlines, list items, or notes… e.g. Top 5 Jackie Chan action movies: 1. Police Story 2. Project A …"
             className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           />
         </label>

@@ -15,11 +15,13 @@ import {
   TrendingUp,
   Menu,
   X,
+  Share2,
 } from 'lucide-react';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/homepage', label: 'Homepage', icon: Home },
+  { href: '/admin/auto-share', label: 'Auto-share', icon: Share2 },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/articles/new', label: 'Write article', icon: FileText },
   { href: '/admin/breaking', label: 'Breaking News', icon: Megaphone },

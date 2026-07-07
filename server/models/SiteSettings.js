@@ -42,6 +42,19 @@ const siteSettingsSchema = new mongoose.Schema(
     /** Live crypto price chart on homepage hero column */
     homepageShowCryptoChart: { type: Boolean, default: true },
     homepageCryptoCoinId: { type: String, default: 'bitcoin' },
+    /** Scheduled auto-share — articlesPerCategory for each of 9 site categories (US Eastern times) */
+    autoShareEnabled: { type: Boolean, default: false },
+    autoShareArticleCount: { type: Number, default: 5, min: 1, max: 20 },
+    autoShareSourceIds: [{ type: mongoose.Schema.Types.ObjectId }],
+    autoSharePeriods: [
+      {
+        id: String,
+        label: String,
+        hourET: { type: Number, min: 0, max: 23 },
+        minuteET: { type: Number, min: 0, max: 59 },
+        enabled: { type: Boolean, default: true },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -124,6 +124,18 @@ async function searchWikimediaCommonsList(query, limit = 6) {
   }
 }
 
+/** Search Wikimedia + Google Images (CC / free-use filter). */
+export async function searchFreeImagesForQuery(query, { limit = 3 } = {}) {
+  const q = String(query || '').trim();
+  if (!q) return [];
+
+  const wiki = await searchWikimediaCommonsList(q, limit);
+  if (wiki.length >= limit) return wiki.slice(0, limit);
+
+  const google = await searchGoogleImageList(q, { freeUseOnly: true, limit: limit - wiki.length });
+  return [...wiki, ...google].slice(0, limit);
+}
+
 /** Wikimedia Commons — free-to-use images for news heroes. */
 async function searchWikimediaCommons(query) {
   const list = await searchWikimediaCommonsList(query, 1);

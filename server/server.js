@@ -17,6 +17,7 @@ import { Article } from './models/Article.js';
 import { publicArticleFilter } from './utils/publicArticleFilter.js';
 import { logger } from './utils/logger.js';
 import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
+import { scheduleAutoShare } from './jobs/autoShareScheduler.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
 import { startLiveScoresPoller } from './jobs/liveScoresPoller.js';
 
@@ -201,6 +202,7 @@ async function start() {
     } else {
       logger.info('AI news fetcher disabled (DISABLE_AI_PIPELINE=true)');
     }
+    scheduleAutoShare();
     await pushTicker();
     setInterval(pushTicker, 5 * 60 * 1000);
     startLiveScoresPoller();

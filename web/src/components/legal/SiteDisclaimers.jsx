@@ -9,8 +9,8 @@ export function FooterLegal() {
         not affiliated with wire services or publishers cited in our Sources sections.
       </p>
       <p className="mt-2">
-        <strong>Copyright:</strong> Third-party headlines, images, and excerpts remain the property of their
-        respective owners and are credited where applicable.
+        <strong>Copyright-free editorial:</strong> Articles are independently rewritten. Images use Creative
+        Commons, Wikimedia, or royalty-free sources with attribution on each page.
       </p>
       <p className="mt-2">
         <strong>Not professional advice:</strong> Nothing on this site constitutes financial, medical, legal, or
