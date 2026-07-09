@@ -162,6 +162,8 @@ export function AutoSharePanel() {
   };
 
   const activeCategoryCount = selectedCategories.length || categories.length || 10;
+
+  const toggleSource = (id) => {
     const sid = String(id);
     setSourceIds((prev) =>
       prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid],
