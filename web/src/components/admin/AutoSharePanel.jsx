@@ -6,7 +6,10 @@ import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { Plus, Trash2, Play, Clock } from 'lucide-react';
 import { AutoShareRunProgress } from './AutoShareRunProgress.jsx';
+import { ContentIdeasPanel } from './ContentIdeasPanel.jsx';
 import { startAutoShareRun } from '@/utils/autoShareRun';
+import { api } from '@/services/api';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 function formatEtClock(parts) {
   if (!parts) return '—';
@@ -51,10 +54,12 @@ function newPeriod() {
 }
 
 export function AutoSharePanel() {
+  const [tab, setTab] = useState('auto-share');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [activeJob, setActiveJob] = useState(null);
+  const [reportsOpen, setReportsOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [articleCount, setArticleCount] = useState(5);
   const [categories, setCategories] = useState([]);
@@ -84,6 +89,15 @@ export function AutoSharePanel() {
 
   useEffect(() => {
     load();
+    api
+      .get('/admin/auto-share/active-job')
+      .then(({ data }) => {
+        if (data.job?.id) {
+          setActiveJob({ jobId: data.job.id, periodLabel: data.job.periodLabel });
+          setRunningId(data.job.periodId);
+        }
+      })
+      .catch(() => {});
   }, [load]);
 
   const save = async () => {
@@ -152,12 +166,11 @@ export function AutoSharePanel() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-gray-900 dark:text-white">
-            Auto-share hot articles
+            Auto-share & content ideas
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-            Schedule automatic sharing of top viewed articles from your selected news sources.
-            Each run picks hot stories <strong>per category</strong> (World, Tech, Business, etc.).
-            Times use US Eastern (ET).
+            Schedule RSS auto-sharing or batch-generate listicle drafts from topic ideas. All runs
+            continue on the server in the background.
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm dark:border-gray-800 dark:bg-gray-900">
@@ -167,6 +180,35 @@ export function AutoSharePanel() {
         </div>
       </div>
 
+      <div className="flex gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-950">
+        <button
+          type="button"
+          onClick={() => setTab('auto-share')}
+          className={`rounded-md px-4 py-2 text-sm font-medium ${
+            tab === 'auto-share'
+              ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-white'
+              : 'text-gray-600 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          Auto-share
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('content-ideas')}
+          className={`rounded-md px-4 py-2 text-sm font-medium ${
+            tab === 'content-ideas'
+              ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-white'
+              : 'text-gray-600 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          Content ideas
+        </button>
+      </div>
+
+      {tab === 'content-ideas' ? (
+        <ContentIdeasPanel />
+      ) : (
+        <>
       <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <label className="flex cursor-pointer items-center gap-3">
@@ -372,68 +414,98 @@ export function AutoSharePanel() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="font-display text-lg font-semibold">Run reports</h2>
-        <p className="mt-1 text-sm text-gray-500">History of each scheduled or manual run</p>
-
-        {!reports.length ? (
-          <p className="mt-4 text-sm text-gray-500">No runs yet.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-800">
-                  <th className="py-2 pr-4">When</th>
-                  <th className="py-2 pr-4">Period</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Featured</th>
-                  <th className="py-2 pr-4">Published</th>
-                  <th className="py-2">Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((r) => (
-                  <tr key={r._id} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="py-3 pr-4 whitespace-nowrap">
-                      {r.runDateET} {r.scheduledTimeET}
-                      <div className="text-xs text-gray-400">
-                        {r.triggeredBy === 'manual' ? 'Manual' : 'Scheduled'}
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4">{r.periodLabel}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(r.status)}`}>
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">{r.featuredCount ?? 0}</td>
-                    <td className="py-3 pr-4">{r.publishedCount ?? 0}</td>
-                    <td className="py-3">
-                      <div>{r.summary}</div>
-                      {r.categoryBreakdown?.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {r.categoryBreakdown.map((b) => (
-                            <span
-                              key={b.category}
-                              className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                              title={`Featured ${b.featured}, published ${b.published}, failed ${b.failed}`}
-                            >
-                              {categoryLabel(b.category)}: {b.featured + b.published}/{b.requested}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {r.errorMessages?.length > 0 && (
-                        <div className="mt-1 text-xs text-red-600">{r.errorMessages.join('; ')}</div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <section className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <button
+          type="button"
+          onClick={() => setReportsOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-3 p-6 text-left"
+        >
+          <div>
+            <h2 className="font-display text-lg font-semibold">Run reports</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {reports.length
+                ? `${reports.length} run(s) — click to ${reportsOpen ? 'collapse' : 'expand'}`
+                : 'History of each scheduled or manual run'}
+            </p>
           </div>
-        )}
+          {reportsOpen ? (
+            <ChevronDown className="h-5 w-5 shrink-0 text-gray-400" />
+          ) : (
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+          )}
+        </button>
+
+        {reportsOpen ? (
+          !reports.length ? (
+            <p className="border-t border-gray-100 px-6 pb-6 text-sm text-gray-500 dark:border-gray-800">
+              No runs yet.
+            </p>
+          ) : (
+            <div className="border-t border-gray-100 px-6 pb-6 dark:border-gray-800">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-800">
+                      <th className="py-2 pr-4">When</th>
+                      <th className="py-2 pr-4">Period</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Featured</th>
+                      <th className="py-2 pr-4">Published</th>
+                      <th className="py-2">Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((r) => (
+                      <tr key={r._id} className="border-b border-gray-100 dark:border-gray-800">
+                        <td className="py-3 pr-4 whitespace-nowrap">
+                          {r.runDateET} {r.scheduledTimeET}
+                          <div className="text-xs text-gray-400">
+                            {r.triggeredBy === 'manual' ? 'Manual' : 'Scheduled'}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4">{r.periodLabel}</td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(r.status)}`}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">{r.featuredCount ?? 0}</td>
+                        <td className="py-3 pr-4">{r.publishedCount ?? 0}</td>
+                        <td className="py-3">
+                          <div>{r.summary}</div>
+                          {r.categoryBreakdown?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {r.categoryBreakdown.map((b) => (
+                                <span
+                                  key={b.category}
+                                  className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                  title={`Featured ${b.featured}, published ${b.published}, failed ${b.failed}`}
+                                >
+                                  {categoryLabel(b.category)}: {b.featured + b.published}/{b.requested}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {r.errorMessages?.length > 0 && (
+                            <div className="mt-1 max-h-24 overflow-y-auto text-xs text-red-600">
+                              {r.errorMessages.slice(0, 5).join('; ')}
+                              {r.errorMessages.length > 5 ? ` (+${r.errorMessages.length - 5} more)` : ''}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        ) : null}
       </section>
+        </>
+      )}
     </div>
   );
 }

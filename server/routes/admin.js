@@ -6,6 +6,7 @@ import * as images from '../controllers/imageController.js';
 import { adminAiLimiter, batchPublishLimiter } from '../middleware/rateLimiter.js';
 import { heroUploadMiddleware } from '../middleware/uploadHero.js';
 import * as autoShare from '../controllers/autoShareController.js';
+import * as ideaBatch from '../controllers/ideaBatchController.js';
 
 const router = Router();
 
@@ -46,6 +47,16 @@ router.post('/auto-share/run/:periodId', autoShare.triggerAutoSharePeriod);
 router.get('/auto-share/run-status/:jobId', autoShare.getAutoShareRunStatus);
 router.post('/auto-share/run-status/:jobId/control', autoShare.postAutoShareRunControl);
 router.post('/auto-share/run/:jobId/control', autoShare.postAutoShareRunControl);
+router.get('/auto-share/active-job', autoShare.getAutoShareActiveJob);
+
+router.get('/idea-batch', ideaBatch.getIdeaBatch);
+router.post('/idea-batch/start', ideaBatch.postIdeaBatchStart);
+router.get('/idea-batch/run-status/:jobId', ideaBatch.getIdeaBatchRunStatus);
+router.post('/idea-batch/run-status/:jobId/control', ideaBatch.postIdeaBatchRunControl);
+router.get('/idea-batch/active-job', ideaBatch.getIdeaBatchActiveJob);
+router.get('/idea-batch/drafts', ideaBatch.getIdeaDrafts);
+router.post('/idea-batch/drafts/publish', ideaBatch.postBulkPublishDrafts);
+router.post('/idea-batch/drafts/delete', ideaBatch.postBulkDeleteDrafts);
 
 router.get('/ai/news-feed', adminAiLimiter, adminAi.getAiNewsFeed);
 router.get('/ai/search-hero-images', adminAiLimiter, adminAi.searchHeroImages);

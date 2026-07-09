@@ -16,7 +16,8 @@ export const apiLimiter = rateLimit({
       p === '/health' ||
       p === '/sitemap.xml' ||
       /^\/sitemap-.*\.xml$/.test(p) ||
-      /\/admin\/auto-share\/run-status\//.test(url)
+      /\/admin\/auto-share\/run-status\//.test(url) ||
+      /\/admin\/idea-batch\/run-status\//.test(url)
     );
   },
 });

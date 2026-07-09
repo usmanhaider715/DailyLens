@@ -2,6 +2,7 @@ import { Article } from '../models/Article.js';
 import { slugify } from './slugify.js';
 import { hashUrl } from './hashUrl.js';
 import { stripHtml } from './stripHtml.js';
+import { parseReadTimeMinutes } from './seoArticleNormalize.js';
 import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
 import { deleteHeroUploadFile, extractUploadFilename } from './heroFileUpload.js';
 import { resolveFeaturedImageUrl } from './imageGenerator.js';
@@ -78,7 +79,7 @@ export function buildArticlePayload(input, existing = null) {
       input.category || existing?.category || 'World'
     ),
     seoScore: input.seoScore ?? existing?.seoScore ?? 7,
-    readTime: input.readTime ?? estimateReadTime(body),
+    readTime: parseReadTimeMinutes(input.readTime, body),
     featuredImage: featuredImage || undefined,
     isBreaking: !!input.isBreaking,
     isFeatured: !!input.isFeatured,

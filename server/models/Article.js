@@ -62,7 +62,8 @@ const articleSchema = new mongoose.Schema(
     lastAutoSharedAt: { type: Date, index: true },
     aiProcessedAt: Date,
     language: { type: String, default: 'en' },
-    sourceType: { type: String, enum: ['manual', 'automated'], default: 'automated' },
+    sourceType: { type: String, enum: ['manual', 'automated', 'idea-batch'], default: 'automated' },
+    ideaBatchId: { type: String, index: true },
     forecast: {
       enabled: { type: Boolean, default: false },
       headline: String,

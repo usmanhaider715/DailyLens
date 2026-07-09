@@ -23,6 +23,8 @@ export function isListicleRoughText(text) {
     /\btop\s+\d+\b/i.test(t) ||
     /\bbest\s+\d+\b/i.test(t) ||
     /\b\d+\s+best\b/i.test(t) ||
+    /\bbest\s+[a-z]/i.test(t) ||
+    /\btop\s+[a-z]/i.test(t) ||
     /\b\d+\s+(movies|films|songs|albums|shows|series|games|apps|tips|ways|reasons|places|actors|actresses|celebrities)\b/i.test(t) ||
     /^\s*\d+[\.)]\s/m.test(t)
   );

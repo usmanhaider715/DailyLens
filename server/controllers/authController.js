@@ -1,6 +1,10 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { sendAdminLoginAlert } from '../lib/mailer.js';
+import { getClientIp, lookupIpLocation } from '../lib/ipGeo.js';
+import { buildLastRunSummary } from '../lib/lastRunSummary.js';
+import { logger } from '../utils/logger.js';
 
 export async function login(req, res, next) {
   try {
@@ -13,8 +17,24 @@ export async function login(req, res, next) {
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '8h' }
     );
+
+    const ip = getClientIp(req);
+    const userAgent = req.headers['user-agent'] || '';
+    lookupIpLocation(ip)
+      .then(async (location) => {
+        const lastRunSummary = await buildLastRunSummary();
+        return sendAdminLoginAlert({
+          email: user.email,
+          ip,
+          location,
+          userAgent,
+          lastRunSummary,
+        });
+      })
+      .catch((err) => logger.warn('Login alert failed', err.message));
+
     res.json({ token, user: { email: user.email, role: user.role } });
   } catch (e) {
     next(e);

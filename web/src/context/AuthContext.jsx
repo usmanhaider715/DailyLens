@@ -5,14 +5,36 @@ import { api, setAuthToken } from '@/services/api';
 
 const AuthContext = createContext(null);
 
+const TOKEN_KEY = 'token';
+const USER_KEY = 'user';
+
+function readSession(key) {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(key, value) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (value == null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem('token');
-    const raw = localStorage.getItem('user');
+    const t = readSession(TOKEN_KEY);
+    const raw = readSession(USER_KEY);
     if (t) {
       setToken(t);
       setAuthToken(t);
@@ -30,10 +52,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!ready) return;
     if (token) {
-      localStorage.setItem('token', token);
+      writeSession(TOKEN_KEY, token);
       setAuthToken(token);
     } else {
-      localStorage.removeItem('token');
+      writeSession(TOKEN_KEY, null);
       setAuthToken(null);
     }
   }, [token, ready]);
@@ -42,13 +64,13 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/login', { email, password });
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    writeSession(USER_KEY, JSON.stringify(data.user));
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('user');
+    writeSession(USER_KEY, null);
   };
 
   const value = useMemo(

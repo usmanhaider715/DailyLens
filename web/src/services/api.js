@@ -21,8 +21,8 @@ if (typeof window !== 'undefined') {
         window.location.pathname.startsWith('/admin') &&
         !window.location.pathname.startsWith('/admin/login')
       ) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = `/admin/login?from=${encodeURIComponent(window.location.pathname)}`;
       }
       return Promise.reject(error);

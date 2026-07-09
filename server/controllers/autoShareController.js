@@ -4,6 +4,7 @@ import {
   startAutoShareRunJob,
   getAutoShareRunJob,
   controlAutoShareRun,
+  getActiveAutoShareRunJob,
 } from '../services/autoShareService.js';
 
 export async function getAutoShare(req, res, next) {
@@ -51,6 +52,15 @@ export async function postAutoShareRunControl(req, res, next) {
     const job = controlAutoShareRun(req.params.jobId, action);
     if (!job) return res.status(404).json({ message: 'Job not found or invalid action' });
     res.json(job);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getAutoShareActiveJob(req, res, next) {
+  try {
+    const job = getActiveAutoShareRunJob();
+    res.json({ job });
   } catch (e) {
     next(e);
   }

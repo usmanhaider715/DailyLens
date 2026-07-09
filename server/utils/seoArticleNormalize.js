@@ -78,6 +78,22 @@ function estimateReadMinutes(body) {
   return Math.max(1, Math.ceil(words / 238));
 }
 
+/** Coerce AI readTime strings like "2 min read" / "3 minutes" into a minute count. */
+export function parseReadTimeMinutes(value, bodyFallback = '') {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.max(1, Math.round(value));
+  }
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw) {
+    const match = raw.match(/(\d+(?:\.\d+)?)/);
+    if (match) {
+      const n = Number(match[1]);
+      if (Number.isFinite(n) && n > 0) return Math.max(1, Math.round(n));
+    }
+  }
+  return estimateReadMinutes(bodyFallback);
+}
+
 function ensureHtmlBody(body) {
   const text = String(body || '').trim();
   if (!text) return '';
@@ -262,7 +278,7 @@ export function normalizeSeoArticleOutput(parsed, raw = {}) {
     faqSchema,
     seoScore: clampSeoScore(parsed.seoScore),
     geoScore,
-    readTime: parsed.readTime || estimateReadMinutes(body),
+    readTime: parseReadTimeMinutes(parsed.readTime, body),
     imagePrompt: stripHtml(parsed.imagePrompt || '').trim() || parsed.imagePrompt,
   };
 }
