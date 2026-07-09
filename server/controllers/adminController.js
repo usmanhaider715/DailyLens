@@ -21,6 +21,7 @@ const adminListProjection = {
   isFeatured: 1,
   isPublished: 1,
   isPaused: 1,
+  isEvergreen: 1,
   heroImage: 1,
   forecast: 1,
   sourceType: 1,
@@ -103,6 +104,7 @@ export async function listAdminArticles(req, res, next) {
     const q = req.query.q;
     const from = req.query.from ? new Date(req.query.from) : null;
     const to = req.query.to ? new Date(req.query.to) : null;
+    const section = req.query.section || 'published';
 
     const filter = {};
     if (category) filter.category = category;
@@ -113,12 +115,31 @@ export async function listAdminArticles(req, res, next) {
       if (to) filter.publishedAt.$lte = to;
     }
 
+    switch (section) {
+      case 'evergreen':
+        filter.isPublished = true;
+        filter.isEvergreen = true;
+        break;
+      case 'drafts':
+        filter.isPublished = false;
+        filter.isEvergreen = { $ne: true };
+        break;
+      case 'evergreen-drafts':
+        filter.isPublished = false;
+        filter.isEvergreen = true;
+        break;
+      default:
+        filter.isPublished = true;
+        filter.isEvergreen = { $ne: true };
+        break;
+    }
+
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       Article.find(filter, adminListProjection).sort({ publishedAt: -1 }).skip(skip).limit(limit),
       Article.countDocuments(filter),
     ]);
-    res.json({ items, page, limit, total });
+    res.json({ items, page, limit, total, section });
   } catch (e) {
     next(e);
   }
@@ -154,10 +175,23 @@ export async function setPaused(req, res, next) {
   }
 }
 
+export async function setEvergreen(req, res, next) {
+  try {
+    await Article.findByIdAndUpdate(req.params.id, { isEvergreen: req.body?.value ?? true });
+    await invalidateArticleCaches();
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function deleteArticle(req, res, next) {
   try {
     const doc = await Article.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Article not found' });
+    if (doc.isEvergreen) {
+      return res.status(403).json({ message: 'Evergreen articles cannot be deleted from here. Unmark evergreen first.' });
+    }
     await cleanupHeroUpload(doc.heroImage);
     await Article.findByIdAndDelete(req.params.id);
     await invalidateArticleCaches();
@@ -170,11 +204,12 @@ export async function deleteArticle(req, res, next) {
 export async function bulkDelete(req, res, next) {
   try {
     const ids = req.body.ids || [];
-    const docs = await Article.find({ _id: { $in: ids } }).select('heroImage').lean();
+    const docs = await Article.find({ _id: { $in: ids }, isEvergreen: { $ne: true } }).select('heroImage').lean();
+    const skipped = ids.length - docs.length;
     await Promise.all(docs.map((d) => cleanupHeroUpload(d.heroImage)));
-    await Article.deleteMany({ _id: { $in: ids } });
+    await Article.deleteMany({ _id: { $in: docs.map((d) => d._id) } });
     await invalidateArticleCaches();
-    res.json({ ok: true });
+    res.json({ ok: true, deleted: docs.length, skipped });
   } catch (e) {
     next(e);
   }

@@ -67,7 +67,8 @@ export async function getIdeaDrafts(req, res, next) {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 50);
     const batchId = req.query.batchId;
-    const data = await listIdeaDrafts({ page, limit, batchId });
+    const evergreen = req.query.evergreen === '1' || req.query.evergreen === 'true';
+    const data = await listIdeaDrafts({ page, limit, batchId, evergreen });
     res.json(data);
   } catch (e) {
     next(e);

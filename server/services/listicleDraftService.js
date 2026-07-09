@@ -16,6 +16,8 @@ import {
   parseJsonFromModelText,
 } from '../lib/openrouter.js';
 import { searchFreeImagesForQuery } from './imageDiscoveryService.js';
+import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
+import { slugify } from '../utils/slugify.js';
 import { logger } from '../utils/logger.js';
 
 function sleep(ms) {
@@ -28,6 +30,65 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/** e.g. "Top 5 John Wick Movies" → "John Wick" */
+export function extractListicleTopic(title) {
+  let t = String(title || '').trim();
+  t = t.replace(/^(top\s+\d+|best\s+\d+|top|best)\s+/i, '');
+  t = t.replace(/\s+(movies|films|shows|songs|games|albums|series|actors|actresses)$/i, '');
+  return t.trim() || String(title || '').trim();
+}
+
+function posterSearchQueries(label, kind = 'item') {
+  const base = String(label || '').trim();
+  if (!base) return [];
+  if (kind === 'hero') {
+    return [
+      `${base} movie poster official`,
+      `${base} film poster`,
+      `${base} movie promotional poster`,
+      `${base} movie still`,
+      base,
+    ];
+  }
+  return [
+    `${base} movie poster`,
+    `${base} film poster official`,
+    `${base} movie still`,
+    `${base} film scene`,
+    base,
+  ];
+}
+
+/** Google/CC image first; AI-generated hero as fallback. */
+async function resolveListicleImage(label, category, { kind = 'item' } = {}) {
+  for (const query of posterSearchQueries(label, kind)) {
+    try {
+      const found = await searchFreeImagesForQuery(query, { limit: 1 });
+      if (found[0]?.url) return found[0];
+    } catch {
+      /* try next query */
+    }
+  }
+
+  try {
+    const aiUrl = await resolveFeaturedImageUrl(label, category, slugify(label));
+    if (aiUrl) {
+      return {
+        url: aiUrl,
+        credit: 'AI generated illustration',
+        creditUrl: '',
+        source: 'ai',
+        viaGoogle: false,
+        license: 'generated',
+      };
+    }
+  } catch (err) {
+    logger.warn('Listicle AI image fallback failed', err.message);
+  }
+
+  return null;
 }
 
 async function requestListicleJson(userPrompt) {
@@ -92,7 +153,7 @@ async function requestListicleJson(userPrompt) {
   return parseJsonFromModelText(content);
 }
 
-async function buildListicleHtml(listItems) {
+async function buildListicleHtml(listItems, category) {
   const parts = [];
   const imageCredits = [];
 
@@ -100,18 +161,18 @@ async function buildListicleHtml(listItems) {
     const rank = item.rank ?? parts.length + 1;
     const title = String(item.title || '').trim();
     const desc = String(item.description || '').trim();
-    const query = String(item.imageSearchQuery || `${title} photo`).trim();
+    const searchLabel = title || String(item.imageSearchQuery || '').trim();
 
     let figureHtml = '';
     try {
-      const images = await searchFreeImagesForQuery(query, { limit: 1 });
-      const img = images[0];
+      const img = await resolveListicleImage(searchLabel, category, { kind: 'item' });
       if (img?.url) {
         item._resolvedImageUrl = img.url;
-        const alt = escapeHtml(title || query);
+        const alt = escapeHtml(title || searchLabel);
         const credit = escapeHtml(img.credit || 'Creative Commons / free use');
         const creditUrl = escapeHtml(img.creditUrl || img.url);
-        figureHtml = `<figure class="listicle-figure"><img src="${escapeHtml(img.url)}" alt="${alt}" loading="lazy" /><figcaption>Image: <a href="${creditUrl}" rel="noopener noreferrer">${credit}</a> (royalty-free / Creative Commons)</figcaption></figure>`;
+        const sourceNote = img.source === 'ai' ? 'AI generated' : 'royalty-free / Creative Commons';
+        figureHtml = `<figure class="listicle-figure"><img src="${escapeHtml(img.url)}" alt="${alt}" loading="lazy" /><figcaption>Image: <a href="${creditUrl}" rel="noopener noreferrer">${credit}</a> (${sourceNote})</figcaption></figure>`;
         imageCredits.push({ title, credit: img.credit, url: img.creditUrl || img.url, imageUrl: img.url });
       }
     } catch {
@@ -140,7 +201,8 @@ export async function generateListicleArticle(raw, suggestedCategory) {
 
   const intro = String(parsed.intro || '').trim();
   const outro = String(parsed.outro || '').trim();
-  const { html: listHtml, imageCredits } = await buildListicleHtml(listItems);
+  const articleCategory = parsed.category || suggestedCategory || 'Entertainment';
+  const { html: listHtml, imageCredits } = await buildListicleHtml(listItems, articleCategory);
 
   let body = '';
   if (intro) body += `<p>${escapeHtml(intro)}</p>\n`;
@@ -175,6 +237,7 @@ export async function generateListicleArticle(raw, suggestedCategory) {
 export async function buildListicleDraftResponse(raw, suggestedCategory) {
   const article = await generateListicleArticle(raw, suggestedCategory);
   const category = article.category || suggestedCategory || 'Entertainment';
+  const topic = extractListicleTopic(raw.title || article.headline);
 
   let hero = null;
   if (article.body?.includes('listicle-figure')) {
@@ -190,9 +253,25 @@ export async function buildListicleDraftResponse(raw, suggestedCategory) {
       };
     }
   }
+  if (!hero && topic) {
+    hero = await resolveListicleImage(topic, category, { kind: 'hero' });
+  }
   if (!hero) {
     const found = await searchFreeImagesForQuery(article.primaryKeyword || article.headline, { limit: 1 });
     hero = found[0] || null;
+  }
+  if (!hero && topic) {
+    const aiUrl = await resolveFeaturedImageUrl(topic, category, slugify(topic));
+    if (aiUrl) {
+      hero = {
+        url: aiUrl,
+        credit: 'AI generated illustration',
+        creditUrl: '',
+        source: 'ai',
+        viaGoogle: false,
+        license: 'generated',
+      };
+    }
   }
 
   return {

@@ -32,6 +32,12 @@ const PUBLISH_GAP_MS =
   (process.env.BLUESMINDS_API_KEY?.trim() ? 12000 : 45000);
 const JOB_TTL_MS = 2 * 60 * 60 * 1000;
 
+export function resolveAutoShareCategories(settings) {
+  const selected = settings?.autoShareCategories?.filter(Boolean) || [];
+  if (!selected.length) return AUTO_SHARE_CATEGORIES;
+  return AUTO_SHARE_CATEGORIES.filter((c) => selected.includes(c));
+}
+
 class StopRunError extends Error {
   constructor() {
     super('Stopped by user');
@@ -328,7 +334,7 @@ export async function runAutoSharePeriod(period, { triggeredBy = 'schedule', job
 
   const sourceIds = settings.autoShareSourceIds || [];
   const articlesPerCategory = Math.min(Math.max(Number(settings.autoShareArticleCount) || 5, 1), 20);
-  const categories = AUTO_SHARE_CATEGORIES;
+  const categories = resolveAutoShareCategories(settings);
   const requestedTotal = articlesPerCategory * categories.length;
   const sources = await resolveSources(sourceIds);
   const sourceNames = sourceNamesFromDocs(sources);
@@ -709,7 +715,8 @@ export async function startAutoShareRunJob(periodId) {
   }
 
   const articlesPerCategory = Math.min(Math.max(Number(settings.autoShareArticleCount) || 5, 1), 20);
-  const requestedTotal = articlesPerCategory * AUTO_SHARE_CATEGORIES.length;
+  const categories = resolveAutoShareCategories(settings);
+  const requestedTotal = articlesPerCategory * categories.length;
   const scheduledTimeET = formatEasternTime(period.hourET, period.minuteET);
 
   const resolved = await resolveSources(settings.autoShareSourceIds || []);
@@ -721,7 +728,7 @@ export async function startAutoShareRunJob(periodId) {
 
   const job = createRunJob(period, {
     articlesPerCategory,
-    categoryCount: AUTO_SHARE_CATEGORIES.length,
+    categoryCount: categories.length,
     requestedTotal,
     scheduledTimeET,
   });
@@ -746,7 +753,7 @@ export async function startAutoShareRunJob(periodId) {
     total: requestedTotal,
     periodLabel: job.periodLabel,
     articlesPerCategory,
-    categoryCount: AUTO_SHARE_CATEGORIES.length,
+    categoryCount: categories.length,
   };
 }
 
@@ -755,6 +762,7 @@ export async function getAutoShareConfig() {
   const sources = await NewsSource.find().sort({ name: 1 }).lean();
   const reports = await AutoShareReport.find().sort({ createdAt: -1 }).limit(50).lean();
   const articlesPerCategory = settings.autoShareArticleCount ?? 5;
+  const selectedCategories = resolveAutoShareCategories(settings);
   let sourceIds = (settings.autoShareSourceIds || []).map(String);
   if (!sourceIds.length && sources.length) {
     settings.autoShareSourceIds = sources.map((s) => s._id);
@@ -766,7 +774,8 @@ export async function getAutoShareConfig() {
     articleCount: articlesPerCategory,
     articlesPerCategory,
     categories: AUTO_SHARE_CATEGORIES,
-    totalPerRun: articlesPerCategory * AUTO_SHARE_CATEGORIES.length,
+    selectedCategories,
+    totalPerRun: articlesPerCategory * selectedCategories.length,
     sourceIds,
     periods: settings.autoSharePeriods?.length
       ? settings.autoSharePeriods
@@ -802,6 +811,11 @@ export async function updateAutoShareConfig(body) {
       minuteET: Math.min(59, Math.max(0, Number(p.minuteET) || 0)),
       enabled: p.enabled !== false,
     }));
+  }
+  if (Array.isArray(body.selectedCategories)) {
+    settings.autoShareCategories = body.selectedCategories.filter((c) =>
+      AUTO_SHARE_CATEGORIES.includes(c)
+    );
   }
   await settings.save();
   return getAutoShareConfig();

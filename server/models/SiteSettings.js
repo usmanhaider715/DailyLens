@@ -55,6 +55,8 @@ const siteSettingsSchema = new mongoose.Schema(
         enabled: { type: Boolean, default: true },
       },
     ],
+    /** Categories included in each auto-share run (empty = all defaults) */
+    autoShareCategories: [{ type: String }],
   },
   { timestamps: true }
 );

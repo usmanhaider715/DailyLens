@@ -479,16 +479,17 @@ export async function getIdeaBatchConfig() {
   return { reports, activeJob, maxBatch: MAX_IDEA_BATCH };
 }
 
-export async function listIdeaDrafts({ page = 1, limit = 50, batchId } = {}) {
+export async function listIdeaDrafts({ page = 1, limit = 50, batchId, evergreen = false } = {}) {
   const filter = { isPublished: false, sourceType: 'idea-batch' };
   if (batchId) filter.ideaBatchId = batchId;
+  filter.isEvergreen = evergreen ? true : { $ne: true };
   const skip = (page - 1) * limit;
   const [items, total] = await Promise.all([
     Article.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('title slug category summary heroImage featuredImage readTime seoScore createdAt ideaBatchId')
+      .select('title slug category summary heroImage featuredImage readTime seoScore createdAt ideaBatchId isEvergreen')
       .lean(),
     Article.countDocuments(filter),
   ]);
@@ -533,6 +534,7 @@ export async function bulkDeleteDrafts(ids) {
     _id: { $in: objectIds },
     isPublished: false,
     sourceType: 'idea-batch',
+    isEvergreen: { $ne: true },
   });
   await invalidateArticleCaches();
   return { deleted: result.deletedCount };

@@ -61,6 +61,7 @@ export function AutoSharePanel() {
   const [enabled, setEnabled] = useState(false);
   const [articleCount, setArticleCount] = useState(5);
   const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [sourceIds, setSourceIds] = useState([]);
   const [periods, setPeriods] = useState([]);
   const [sources, setSources] = useState([]);
@@ -73,6 +74,9 @@ export function AutoSharePanel() {
       setEnabled(!!data.enabled);
       setArticleCount(data.articlesPerCategory ?? data.articleCount ?? 5);
       setCategories(data.categories || []);
+      setSelectedCategories(
+        data.selectedCategories?.length ? data.selectedCategories : data.categories || []
+      );
       setSourceIds(data.sourceIds || []);
       setPeriods(data.periods?.length ? data.periods : [newPeriod()]);
       setSources(data.sources || []);
@@ -106,6 +110,7 @@ export function AutoSharePanel() {
         articleCount,
         sourceIds,
         periods,
+        selectedCategories,
       });
       setReports(data.reports || []);
       setEasternNow(data.easternNow || null);
@@ -120,6 +125,10 @@ export function AutoSharePanel() {
   const runNow = async (periodId) => {
     if (!sourceIds.length) {
       toast.error('Select at least one news source, then click Save settings');
+      return;
+    }
+    if (!selectedCategories.length) {
+      toast.error('Select at least one category, then click Save settings');
       return;
     }
     if (runningId) return;
@@ -146,7 +155,13 @@ export function AutoSharePanel() {
     await load();
   }, [load]);
 
-  const toggleSource = (id) => {
+  const toggleCategory = (cat) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const activeCategoryCount = selectedCategories.length || categories.length || 10;
     const sid = String(id);
     setSourceIds((prev) =>
       prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid],
@@ -242,27 +257,61 @@ export function AutoSharePanel() {
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-950"
             />
             <p className="mt-1 text-xs text-gray-500">
-              {articleCount} × {categories.length || 9} categories ={' '}
-              <strong>{articleCount * (categories.length || 9)} articles per run</strong>
+              {articleCount} × {activeCategoryCount} categories ={' '}
+              <strong>{articleCount * activeCategoryCount} articles per run</strong>
             </p>
           </div>
           <div>
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Categories included
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Categories to run
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategories(categories)}
+                  className="text-xs text-primary-600 hover:underline"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategories([])}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  None
+                </button>
+              </div>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {(categories.length
                 ? categories
                 : ['World', 'Technology', 'Business', 'Sports', 'Health', 'Entertainment', 'Gaming', 'Politics', 'Crypto', 'Weather']
-              ).map((cat) => (
-                <span
-                  key={cat}
-                  className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  {categoryLabel(cat)}
-                </span>
-              ))}
+              ).map((cat) => {
+                const on = selectedCategories.includes(cat);
+                return (
+                  <label
+                    key={cat}
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      on
+                        ? 'border-primary-400 bg-primary-50 text-primary-900 dark:border-primary-700 dark:bg-primary-950/50 dark:text-primary-100'
+                        : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggleCategory(cat)}
+                      className="h-3 w-3"
+                    />
+                    {categoryLabel(cat)}
+                  </label>
+                );
+              })}
             </div>
+            {!selectedCategories.length ? (
+              <p className="mt-2 text-xs text-amber-600">Select at least one category, then save.</p>
+            ) : null}
           </div>
         </div>
       </section>

@@ -52,6 +52,7 @@ export function ContentIdeasPanel() {
   const [activeJob, setActiveJob] = useState(null);
   const [jobRunning, setJobRunning] = useState(false);
   const [drafts, setDrafts] = useState([]);
+  const [draftSection, setDraftSection] = useState('drafts');
   const [selected, setSelected] = useState(new Set());
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -63,13 +64,9 @@ export function ContentIdeasPanel() {
 
   const load = useCallback(async () => {
     try {
-      const [{ data: config }, { data: draftData }] = await Promise.all([
-        api.get('/admin/idea-batch'),
-        api.get('/admin/idea-batch/drafts', { params: { limit: 100 } }),
-      ]);
+      const { data: config } = await api.get('/admin/idea-batch');
       setReports(config.reports || []);
       setMaxBatch(config.maxBatch || 100);
-      setDrafts(draftData.items || []);
       if (config.activeJob?.id) {
         setActiveJob({ jobId: config.activeJob.id });
         setJobRunning(true);
@@ -82,7 +79,13 @@ export function ContentIdeasPanel() {
   }, []);
 
   useEffect(() => {
+    if (!loading) refreshDrafts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftSection]);
+
+  useEffect(() => {
     load();
+    refreshDrafts();
     getIdeaBatchActiveJob()
       .then((job) => {
         if (job?.id) {
@@ -96,13 +99,25 @@ export function ContentIdeasPanel() {
   const refreshDrafts = async () => {
     setDraftsLoading(true);
     try {
-      const { data } = await api.get('/admin/idea-batch/drafts', { params: { limit: 100 } });
+      const { data } = await api.get('/admin/idea-batch/drafts', {
+        params: { limit: 100, evergreen: draftSection === 'evergreen-drafts' ? '1' : '0' },
+      });
       setDrafts(data.items || []);
       setSelected(new Set());
     } catch {
       toast.error('Failed to refresh drafts');
     } finally {
       setDraftsLoading(false);
+    }
+  };
+
+  const toggleEvergreen = async (id, value) => {
+    try {
+      await api.post(`/admin/articles/${id}/evergreen`, { value });
+      toast.success(value ? 'Moved to Evergreen drafts' : 'Returned to draft inbox');
+      await refreshDrafts();
+    } catch {
+      toast.error('Could not update evergreen');
     }
   };
 
@@ -260,10 +275,43 @@ export function ContentIdeasPanel() {
       ) : null}
 
       <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1 rounded-lg border border-gray-100 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-950">
+          <button
+            type="button"
+            onClick={() => setDraftSection('drafts')}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              draftSection === 'drafts'
+                ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-white'
+                : 'text-gray-600'
+            }`}
+          >
+            Draft inbox
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraftSection('evergreen-drafts')}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              draftSection === 'evergreen-drafts'
+                ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-white'
+                : 'text-gray-600'
+            }`}
+          >
+            Evergreen drafts
+          </button>
+        </div>
+
+        {draftSection === 'evergreen-drafts' ? (
+          <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300">
+            Protected drafts — cannot be bulk-deleted. Uncheck Evergreen to move back.
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-display text-lg font-semibold">Draft inbox</h3>
-            <p className="text-sm text-gray-500">{drafts.length} unpublished draft(s)</p>
+            <h3 className="font-display text-lg font-semibold">
+              {draftSection === 'evergreen-drafts' ? 'Evergreen drafts' : 'Draft inbox'}
+            </h3>
+            <p className="text-sm text-gray-500">{drafts.length} draft(s)</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -290,14 +338,16 @@ export function ContentIdeasPanel() {
             >
               Publish all
             </button>
-            <button
-              type="button"
-              onClick={deleteSelected}
-              disabled={selected.size === 0}
-              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400"
-            >
-              Delete selected
-            </button>
+            {draftSection === 'drafts' ? (
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={selected.size === 0}
+                className="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400"
+              >
+                Delete selected
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -323,6 +373,7 @@ export function ContentIdeasPanel() {
                   <th className="py-2 pr-4">Title</th>
                   <th className="py-2 pr-4">Category</th>
                   <th className="py-2 pr-4">Read</th>
+                  <th className="py-2 pr-4">Evergreen</th>
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
@@ -343,6 +394,14 @@ export function ContentIdeasPanel() {
                     </td>
                     <td className="py-3 pr-4">{d.category}</td>
                     <td className="py-3 pr-4">{d.readTime || '—'} min</td>
+                    <td className="py-3 pr-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!!d.isEvergreen}
+                        onChange={(e) => toggleEvergreen(d._id, e.target.checked)}
+                        title="Move to Evergreen drafts"
+                      />
+                    </td>
                     <td className="py-3">
                       <Link
                         href={`/admin/articles/edit/${d._id}`}

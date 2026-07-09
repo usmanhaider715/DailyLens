@@ -34,6 +34,7 @@ router.post('/articles/bulk-delete', admin.bulkDelete);
 router.post('/articles/:id/feature', admin.setFeatured);
 router.post('/articles/:id/breaking', admin.setBreaking);
 router.post('/articles/:id/pause', admin.setPaused);
+router.post('/articles/:id/evergreen', admin.setEvergreen);
 router.delete('/articles/:id', admin.deleteArticle);
 router.post('/fetch-url', admin.manualFetchUrl);
 router.post('/breaking-push', admin.breakingPush);

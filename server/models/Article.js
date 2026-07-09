@@ -56,6 +56,8 @@ const articleSchema = new mongoose.Schema(
     isFeatured: { type: Boolean, default: false, index: true },
     isPublished: { type: Boolean, default: true, index: true },
     isPaused: { type: Boolean, default: false, index: true },
+    /** Evergreen articles live in a separate admin section and cannot be bulk-deleted */
+    isEvergreen: { type: Boolean, default: false, index: true },
     views: { type: Number, default: 0 },
     publishedAt: { type: Date, default: Date.now, index: true },
     /** Set when auto-share features or publishes — excluded from future auto-share runs */
