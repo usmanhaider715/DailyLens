@@ -11,6 +11,7 @@ const SITE_CATEGORIES = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',
@@ -254,7 +255,7 @@ ${items}
 export function buildLlmsTxt() {
   const site = siteBase();
   return `# The Daily Lens
-> ${site} — Independent digital news covering World, Technology, Business, Sports, Health, Science, Entertainment, Politics, Crypto, and Weather.
+> ${site} — Independent digital news covering World, Technology, Business, Sports, Health, Science, Entertainment, Gaming, Politics, Crypto, and Weather.
 
 ## Primary content
 - Homepage: ${site}/

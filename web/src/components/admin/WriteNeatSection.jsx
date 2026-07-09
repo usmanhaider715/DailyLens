@@ -18,6 +18,7 @@ const categories = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

@@ -213,7 +213,7 @@ export function AutoSharePanel() {
             <div className="mt-2 flex flex-wrap gap-2">
               {(categories.length
                 ? categories
-                : ['World', 'Technology', 'Business', 'Sports', 'Health', 'Entertainment', 'Politics', 'Crypto', 'Weather']
+                : ['World', 'Technology', 'Business', 'Sports', 'Health', 'Entertainment', 'Gaming', 'Politics', 'Crypto', 'Weather']
               ).map((cat) => (
                 <span
                   key={cat}

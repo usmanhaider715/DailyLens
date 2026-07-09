@@ -15,6 +15,7 @@ const categoryLinks = [
   ['Business', 'Business'],
   ['Health', 'Health'],
   ['Entertainment', 'Entertainment'],
+  ['Gaming', 'Gaming'],
   ['Politics', 'Politics'],
   ['Crypto', 'Crypto'],
   ['Weather', 'Weather'],

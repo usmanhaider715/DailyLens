@@ -13,6 +13,7 @@ const allCategories = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

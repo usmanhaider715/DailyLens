@@ -31,7 +31,7 @@ Return a JSON object with exactly these fields:
            Use short paragraphs (2-3 sentences max). Include context, analysis, and quotes 
            where appropriate. Structure: lead paragraph with the news hook, background context, 
            key details, expert perspective or analysis, implications, conclusion.",
-  "category": "Exactly one of: World, Technology, Business, Sports, Health, Science, Entertainment, Politics, Crypto, Weather",
+  "category": "Exactly one of: World, Technology, Business, Sports, Health, Science, Entertainment, Gaming, Politics, Crypto, Weather",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "seoScore": 8,
   "readTime": 4,

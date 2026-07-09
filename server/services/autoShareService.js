@@ -20,6 +20,7 @@ export const AUTO_SHARE_CATEGORIES = [
   'Sports',
   'Health',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

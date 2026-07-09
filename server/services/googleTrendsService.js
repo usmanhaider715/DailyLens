@@ -148,6 +148,7 @@ function inferCategoryFromQuery(query) {
   if (/bitcoin|crypto|ethereum|coin/i.test(q)) return 'Crypto';
   if (/tech|ai |apple|google|microsoft|iphone/i.test(q)) return 'Technology';
   if (/sport|football|nba|cricket|tennis/i.test(q)) return 'Sports';
+  if (/game|gaming|esports|playstation|xbox|nintendo|steam/i.test(q)) return 'Gaming';
   if (/weather|storm|hurricane/i.test(q)) return 'Weather';
   if (/health|covid|hospital|disease/i.test(q)) return 'Health';
   if (/election|trump|biden|parliament|politic/i.test(q)) return 'Politics';

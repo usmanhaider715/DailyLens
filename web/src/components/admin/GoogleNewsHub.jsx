@@ -19,6 +19,7 @@ const CATEGORIES = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

@@ -8,6 +8,7 @@ export const ARTICLE_CATEGORIES = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

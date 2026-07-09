@@ -52,6 +52,13 @@ export const RSS_FEEDS = [
   { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'Entertainment' },
   { name: 'Rolling Stone', url: 'https://www.rollingstone.com/feed/', category: 'Entertainment' },
   { name: 'Entertainment Weekly', url: 'https://ew.com/feed/', category: 'Entertainment' },
+  { name: 'IGN', url: 'https://feeds.ign.com/ign/all', category: 'Gaming' },
+  { name: 'Kotaku', url: 'https://kotaku.com/rss', category: 'Gaming' },
+  { name: 'Polygon', url: 'https://www.polygon.com/rss/index.xml', category: 'Gaming' },
+  { name: 'Eurogamer', url: 'https://www.eurogamer.net/feed', category: 'Gaming' },
+  { name: 'PC Gamer', url: 'https://www.pcgamer.com/rss/', category: 'Gaming' },
+  { name: 'Rock Paper Shotgun', url: 'https://www.rockpapershotgun.com/feed', category: 'Gaming' },
+  { name: 'Nintendo Life', url: 'https://www.nintendolife.com/feeds/news', category: 'Gaming' },
   { name: 'BBC Politics', url: 'http://feeds.bbci.co.uk/news/politics/rss.xml', category: 'Politics' },
   { name: 'Politico', url: 'https://rss.politico.com/politics-news.xml', category: 'Politics' },
   { name: 'The Hill', url: 'https://thehill.com/news/feed/', category: 'Politics' },
@@ -110,6 +117,11 @@ export const RSS_FEEDS = [
     url: 'https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=en-US&gl=US&ceid=US:en',
     category: 'Entertainment',
   },
+  {
+    name: 'Google News Gaming',
+    url: 'https://news.google.com/rss/search?q=video+games+OR+gaming+OR+playstation+OR+xbox+OR+nintendo&hl=en-US&gl=US&ceid=US:en',
+    category: 'Gaming',
+  },
 ];
 
 const RSS_ITEMS_PER_FEED = 12;
@@ -144,6 +156,7 @@ export const NEWS_FEED_CATEGORIES = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',
@@ -309,6 +322,7 @@ async function fetchNewsApi() {
     { q: 'politics OR election OR government OR parliament', category: 'Politics' },
     { q: 'weather OR storm OR hurricane OR forecast OR climate', category: 'Weather' },
     { q: 'cryptocurrency OR bitcoin OR ethereum', category: 'Crypto' },
+    { q: 'video games OR gaming OR esports OR playstation OR xbox OR nintendo', category: 'Gaming' },
   ];
   for (const { q, category } of extraQueries) {
     try {
@@ -379,6 +393,7 @@ async function fetchGNews() {
     { q: 'politics OR election OR government', category: 'Politics' },
     { q: 'bitcoin OR cryptocurrency OR blockchain', category: 'Crypto' },
     { q: 'weather OR storm OR hurricane OR forecast', category: 'Weather' },
+    { q: 'video games OR gaming OR esports OR playstation OR xbox', category: 'Gaming' },
   ];
   for (const { q, category } of searchQueries) {
     try {

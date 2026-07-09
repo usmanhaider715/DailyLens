@@ -18,6 +18,7 @@ const CATEGORY_COLORS = {
   Health: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200',
   Science: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200',
   Entertainment: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200',
+  Gaming: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200',
   Politics: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200',
   Crypto: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200',
   Weather: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-900/50 dark:text-cyan-200',

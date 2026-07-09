@@ -6,6 +6,7 @@ const tabs = [
   'Sports',
   'Health',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',

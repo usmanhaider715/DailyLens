@@ -129,7 +129,7 @@ export function ArticleManager() {
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="">All categories</option>
-          {['World', 'Technology', 'Business', 'Sports', 'Health', 'Science', 'Entertainment', 'Politics', 'Crypto', 'Weather'].map(
+          {['World', 'Technology', 'Business', 'Sports', 'Health', 'Science', 'Entertainment', 'Gaming', 'Politics', 'Crypto', 'Weather'].map(
             (c) => (
               <option key={c} value={c}>
                 {c}

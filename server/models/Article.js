@@ -35,6 +35,7 @@ const articleSchema = new mongoose.Schema(
         'Health',
         'Science',
         'Entertainment',
+        'Gaming',
         'Politics',
         'Crypto',
         'Weather',

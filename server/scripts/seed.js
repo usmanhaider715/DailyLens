@@ -20,6 +20,7 @@ const categories = [
   'Health',
   'Science',
   'Entertainment',
+  'Gaming',
   'Politics',
   'Crypto',
   'Weather',
@@ -48,6 +49,19 @@ const rssSources = [
   { name: 'Deadline', type: 'rss', url: 'https://deadline.com/feed/', category: 'Entertainment' },
   { name: 'Rolling Stone', type: 'rss', url: 'https://www.rollingstone.com/feed/', category: 'Entertainment' },
   { name: 'Entertainment Weekly', type: 'rss', url: 'https://ew.com/feed/', category: 'Entertainment' },
+  { name: 'IGN', type: 'rss', url: 'https://feeds.ign.com/ign/all', category: 'Gaming' },
+  { name: 'Kotaku', type: 'rss', url: 'https://kotaku.com/rss', category: 'Gaming' },
+  { name: 'Polygon', type: 'rss', url: 'https://www.polygon.com/rss/index.xml', category: 'Gaming' },
+  { name: 'Eurogamer', type: 'rss', url: 'https://www.eurogamer.net/feed', category: 'Gaming' },
+  { name: 'PC Gamer', type: 'rss', url: 'https://www.pcgamer.com/rss/', category: 'Gaming' },
+  { name: 'Rock Paper Shotgun', type: 'rss', url: 'https://www.rockpapershotgun.com/feed', category: 'Gaming' },
+  { name: 'Nintendo Life', type: 'rss', url: 'https://www.nintendolife.com/feeds/news', category: 'Gaming' },
+  {
+    name: 'Google News Gaming',
+    type: 'rss',
+    url: 'https://news.google.com/rss/search?q=video+games+OR+gaming+OR+playstation+OR+xbox+OR+nintendo&hl=en-US&gl=US&ceid=US:en',
+    category: 'Gaming',
+  },
 ];
 
 async function seedDemoArticles() {

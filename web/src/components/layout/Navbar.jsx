@@ -13,6 +13,7 @@ const cats = [
   ['Sports', 'Sports'],
   ['Health', 'Health'],
   ['Entertainment', 'Entertainment'],
+  ['Gaming', 'Gaming'],
   ['Politics', 'Politics'],
   ['Crypto', 'Crypto'],
   ['Weather', 'Weather'],
