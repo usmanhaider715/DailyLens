@@ -20,10 +20,6 @@ import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 import { slugify } from '../utils/slugify.js';
 import { logger } from '../utils/logger.js';
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 function escapeHtml(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -40,30 +36,21 @@ export function extractListicleTopic(title) {
   return t.trim() || String(title || '').trim();
 }
 
-function posterSearchQueries(label, kind = 'item') {
+function heroSearchQueries(label) {
   const base = String(label || '').trim();
   if (!base) return [];
-  if (kind === 'hero') {
-    return [
-      `${base} movie poster official`,
-      `${base} film poster`,
-      `${base} movie promotional poster`,
-      `${base} movie still`,
-      base,
-    ];
-  }
   return [
-    `${base} movie poster`,
-    `${base} film poster official`,
+    `${base} movie poster official`,
+    `${base} film poster`,
+    `${base} movie promotional poster`,
     `${base} movie still`,
-    `${base} film scene`,
     base,
   ];
 }
 
-/** Google/CC image first; AI-generated hero as fallback. */
-async function resolveListicleImage(label, category, { kind = 'item' } = {}) {
-  for (const query of posterSearchQueries(label, kind)) {
+/** Hero only: Google/CC poster first, AI-generated fallback. */
+async function resolveListicleHero(label, category) {
+  for (const query of heroSearchQueries(label)) {
     try {
       const found = await searchFreeImagesForQuery(query, { limit: 1 });
       if (found[0]?.url) return found[0];
@@ -85,7 +72,7 @@ async function resolveListicleImage(label, category, { kind = 'item' } = {}) {
       };
     }
   } catch (err) {
-    logger.warn('Listicle AI image fallback failed', err.message);
+    logger.warn('Listicle AI hero fallback failed', err.message);
   }
 
   return null;
@@ -153,39 +140,27 @@ async function requestListicleJson(userPrompt) {
   return parseJsonFromModelText(content);
 }
 
-async function buildListicleHtml(listItems, category) {
-  const parts = [];
-  const imageCredits = [];
-
-  for (const item of listItems) {
-    const rank = item.rank ?? parts.length + 1;
+/** Text-only list sections — hero image is set separately, not inline. */
+function buildListicleHtml(listItems) {
+  const parts = listItems.map((item, index) => {
+    const rank = item.rank ?? index + 1;
     const title = String(item.title || '').trim();
     const desc = String(item.description || '').trim();
-    const searchLabel = title || String(item.imageSearchQuery || '').trim();
+    return `<h2><strong>${rank}. ${escapeHtml(title)}</strong></h2><p>${escapeHtml(desc)}</p>`;
+  });
+  return parts.join('\n');
+}
 
-    let figureHtml = '';
-    try {
-      const img = await resolveListicleImage(searchLabel, category, { kind: 'item' });
-      if (img?.url) {
-        item._resolvedImageUrl = img.url;
-        const alt = escapeHtml(title || searchLabel);
-        const credit = escapeHtml(img.credit || 'Creative Commons / free use');
-        const creditUrl = escapeHtml(img.creditUrl || img.url);
-        const sourceNote = img.source === 'ai' ? 'AI generated' : 'royalty-free / Creative Commons';
-        figureHtml = `<figure class="listicle-figure"><img src="${escapeHtml(img.url)}" alt="${alt}" loading="lazy" /><figcaption>Image: <a href="${creditUrl}" rel="noopener noreferrer">${credit}</a> (${sourceNote})</figcaption></figure>`;
-        imageCredits.push({ title, credit: img.credit, url: img.creditUrl || img.url, imageUrl: img.url });
-      }
-    } catch {
-      /* skip image */
-    }
-
-    parts.push(
-      `<h2><strong>${rank}. ${escapeHtml(title)}</strong></h2>${figureHtml}<p>${escapeHtml(desc)}</p>`
-    );
-    await sleep(400);
+async function resolveHeroFromRaw(raw, article, category) {
+  const topic = extractListicleTopic(raw.title || article.headline);
+  let hero = topic ? await resolveListicleHero(topic, category) : null;
+  if (!hero) {
+    const found = await searchFreeImagesForQuery(article.primaryKeyword || article.headline, {
+      limit: 1,
+    });
+    hero = found[0] || null;
   }
-
-  return { html: parts.join('\n'), imageCredits };
+  return hero;
 }
 
 export async function generateListicleArticle(raw, suggestedCategory) {
@@ -202,7 +177,7 @@ export async function generateListicleArticle(raw, suggestedCategory) {
   const intro = String(parsed.intro || '').trim();
   const outro = String(parsed.outro || '').trim();
   const articleCategory = parsed.category || suggestedCategory || 'Entertainment';
-  const { html: listHtml, imageCredits } = await buildListicleHtml(listItems, articleCategory);
+  const listHtml = buildListicleHtml(listItems);
 
   let body = '';
   if (intro) body += `<p>${escapeHtml(intro)}</p>\n`;
@@ -219,60 +194,15 @@ export async function generateListicleArticle(raw, suggestedCategory) {
     raw
   );
 
-  const firstImg = imageCredits[0];
-  const hero = firstImg
-    ? {
-        url: firstImg.imageUrl,
-        credit: firstImg.credit,
-        creditUrl: firstImg.url,
-        source: 'google_images',
-        viaGoogle: true,
-        license: 'creative_commons',
-      }
-    : null;
-
-  return finalizeSeoArticleBody(normalized, raw, hero);
+  const hero = await resolveHeroFromRaw(raw, normalized, articleCategory);
+  const finalized = finalizeSeoArticleBody(normalized, raw, hero);
+  return { ...finalized, listicleHero: hero };
 }
 
 export async function buildListicleDraftResponse(raw, suggestedCategory) {
   const article = await generateListicleArticle(raw, suggestedCategory);
   const category = article.category || suggestedCategory || 'Entertainment';
-  const topic = extractListicleTopic(raw.title || article.headline);
-
-  let hero = null;
-  if (article.body?.includes('listicle-figure')) {
-    const m = article.body.match(/<img src="([^"]+)"/);
-    if (m) {
-      hero = {
-        url: m[1],
-        credit: 'Creative Commons / free use',
-        creditUrl: '',
-        source: 'google_images',
-        viaGoogle: true,
-        license: 'creative_commons',
-      };
-    }
-  }
-  if (!hero && topic) {
-    hero = await resolveListicleImage(topic, category, { kind: 'hero' });
-  }
-  if (!hero) {
-    const found = await searchFreeImagesForQuery(article.primaryKeyword || article.headline, { limit: 1 });
-    hero = found[0] || null;
-  }
-  if (!hero && topic) {
-    const aiUrl = await resolveFeaturedImageUrl(topic, category, slugify(topic));
-    if (aiUrl) {
-      hero = {
-        url: aiUrl,
-        credit: 'AI generated illustration',
-        creditUrl: '',
-        source: 'ai',
-        viaGoogle: false,
-        license: 'generated',
-      };
-    }
-  }
+  const hero = article.listicleHero || null;
 
   return {
     title: article.headline,

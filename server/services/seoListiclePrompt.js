@@ -11,9 +11,10 @@ NON-NEGOTIABLE:
 
 LISTICLE BODY RULES:
 - Short intro (1-2 sentences) in "intro" field (plain text).
-- Return "listItems" array — each item: rank (number), title, description (2-4 sentences, plain text), imageSearchQuery (specific search for a free/CC photo, e.g. "Jackie Chan Police Story 1985 film still").
+- Return "listItems" array — each item: rank (number), title, description (2-4 sentences, plain text).
 - Optional "outro" (1-2 sentences plain text).
-- Do NOT put HTML in listItems — the server builds HTML with images.
+- Do NOT put HTML in listItems — the server builds HTML text sections only.
+- Do NOT reference inline images — only one hero image is added by the server.
 
 Also return: headline, slug, metaTitle, metaDescription, summary, category, tags, primaryKeyword, readTime, seoScore, geoScore, faqSchema (2 items), followUpLinks (5 items).`;
 
@@ -52,7 +53,7 @@ RETURN JSON:
   "intro": "",
   "outro": "",
   "listItems": [
-    { "rank": 1, "title": "", "description": "", "imageSearchQuery": "" }
+    { "rank": 1, "title": "", "description": "" }
   ],
   "category": "",
   "tags": [],
