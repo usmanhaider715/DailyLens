@@ -4,12 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
-import { Plus, Trash2, Play, Clock } from 'lucide-react';
+import { Plus, Trash2, Play, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { AutoShareRunProgress } from './AutoShareRunProgress.jsx';
 import { ContentIdeasPanel } from './ContentIdeasPanel.jsx';
 import { startAutoShareRun } from '@/utils/autoShareRun';
-import { api } from '@/services/api';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 
 function formatEtClock(parts) {
   if (!parts) return '—';
