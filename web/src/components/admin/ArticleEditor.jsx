@@ -150,12 +150,12 @@ export function ArticleEditor() {
   });
 
   const saveHeroToSite = async (heroFields) => {
-    if (isNew) {
-      toast.success('Hero image set — publish the article to show it on site');
-      return;
-    }
     const merged = { ...form, ...heroFields };
     setForm(merged);
+    if (isNew) {
+      toast.success('Hero image applied — publish the article to show it on the live site');
+      return;
+    }
     try {
       await api.put(`/admin/articles/${id}`, buildPayload(merged));
       toast.success('Hero image saved to live site');

@@ -165,7 +165,7 @@ export default function AdminHeroImageField({
       fd.append('slug', slugHint);
       fd.append('alt', heroImageAlt || title || 'Article hero image');
       const { data } = await api.post('/admin/upload-hero-image', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: LONG_TIMEOUT_MS,
       });
       const fields = {
         featuredImage: data.url,
@@ -179,7 +179,11 @@ export default function AdminHeroImageField({
       setUrlInput(data.url);
       await applyHero(fields, { toastMessage: 'Hero image uploaded' });
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Upload failed');
+      const msg =
+        err?.response?.status === 413
+          ? 'Image file is too large (max 8 MB)'
+          : err?.response?.data?.message || err?.message || 'Upload failed';
+      toast.error(msg);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -346,7 +350,7 @@ export default function AdminHeroImageField({
           </div>
         )}
 
-        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden" onChange={handleUpload} />
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif" className="hidden" onChange={handleUpload} />
 
         {!compact && heroImageUrl && heroImageUrl !== featuredImage && (
           <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
