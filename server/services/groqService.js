@@ -4,9 +4,18 @@ import { normalizeSeoArticleOutput } from '../utils/seoArticleNormalize.js';
 import { finalizeSeoArticleBody } from '../utils/finalizeSeoArticle.js';
 import {
   SEO_ARTICLE_SYSTEM,
+  SEO_ARTICLE_SYSTEM_FAST,
   buildSeoArticleUserPrompt,
   buildCompactSeoArticleUserPrompt,
+  buildBluesmindsSeoArticleUserPrompt,
 } from './seoArticlePrompt.js';
+import {
+  bluesmindsChatCompletion,
+  bluesmindsErrorMessage,
+  isBluesmindsConfigured,
+  isBluesmindsRateLimitError,
+  shouldFallbackFromBluesminds,
+} from '../lib/bluesminds.js';
 import {
   getOpenRouterConfig,
   isOpenRouterConfigured,
@@ -32,7 +41,7 @@ function parseJsonFromText(text) {
 }
 
 export function groqErrorMessage(err) {
-  return openRouterErrorMessage(err) || groqOnlyErrorMessage(err);
+  return bluesmindsErrorMessage(err) || openRouterErrorMessage(err) || groqOnlyErrorMessage(err);
 }
 
 function groqOnlyErrorMessage(err) {
@@ -46,7 +55,7 @@ export function isGroqRateLimitError(err) {
 }
 
 export function isAiRateLimitError(err) {
-  return isOpenRouterRateLimitError(err) || isGroqRateLimitError(err);
+  return isBluesmindsRateLimitError(err) || isOpenRouterRateLimitError(err) || isGroqRateLimitError(err);
 }
 
 export function isAiContentError(err) {
@@ -139,6 +148,47 @@ async function parseAndFinalize(content, rawArticle, modelLabel) {
   return finalizeFromParsed(parsed, rawArticle, modelLabel);
 }
 
+async function generateWithBluesminds(rawArticle, bluesmindsPrompt, compactPrompt) {
+  const attempts = [
+    {
+      system: SEO_ARTICLE_SYSTEM_FAST,
+      prompt: bluesmindsPrompt,
+      label: 'fast',
+      maxTokens: Number(process.env.BLUESMINDS_MAX_TOKENS) || 3600,
+    },
+    {
+      system: SEO_ARTICLE_SYSTEM,
+      prompt: compactPrompt,
+      label: 'compact',
+      maxTokens: Number(process.env.BLUESMINDS_MAX_TOKENS) || 4200,
+    },
+  ];
+
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const { content, model } = await bluesmindsChatCompletion({
+        messages: [
+          { role: 'system', content: attempt.system },
+          { role: 'user', content: attempt.prompt },
+        ],
+        jsonMode: true,
+        temperature: 0.2,
+        maxTokens: attempt.maxTokens,
+      });
+      return parseAndFinalize(content, rawArticle, `bluesminds/${model}`);
+    } catch (err) {
+      lastErr = err;
+      logger.warn(`Bluesminds SEO attempt failed (${attempt.label})`, err.message);
+      if (!shouldFallbackFromBluesminds(err) && !isOpenRouterContentError(err)) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastErr || new Error('Bluesminds SEO article generation failed');
+}
+
 async function generateWithOpenRouterAttempt(userPrompt, rawArticle, { jsonMode = true, temperature = 0.3 } = {}) {
   const { model } = getOpenRouterConfig();
   const { content, model: usedModel } = await openRouterChatCompletion({
@@ -155,9 +205,8 @@ async function generateWithOpenRouterAttempt(userPrompt, rawArticle, { jsonMode 
 
 async function generateWithOpenRouter(rawArticle, userPrompt, compactPrompt) {
   const attempts = [
-    { prompt: userPrompt, jsonMode: true, temperature: 0.3, label: 'full+json' },
+    { prompt: compactPrompt, jsonMode: true, temperature: 0.2, label: 'compact+json' },
     { prompt: userPrompt, jsonMode: false, temperature: 0.2, label: 'full+plain' },
-    { prompt: compactPrompt, jsonMode: false, temperature: 0.2, label: 'compact+plain' },
   ];
 
   let lastErr;
@@ -180,7 +229,7 @@ async function generateWithOpenRouter(rawArticle, userPrompt, compactPrompt) {
 }
 
 async function generateWithGroqModel(apiKey, model, userPrompt, rawArticle, compactPrompt) {
-  const prompts = [userPrompt, compactPrompt];
+  const prompts = [compactPrompt, userPrompt];
   let lastErr;
 
   for (const prompt of prompts) {
@@ -232,7 +281,19 @@ async function generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt) 
   throw lastErr || new Error('Groq generation failed');
 }
 
-async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt) {
+async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt, bluesmindsPrompt) {
+  if (isBluesmindsConfigured()) {
+    try {
+      return await generateWithBluesminds(rawArticle, bluesmindsPrompt, compactPrompt);
+    } catch (err) {
+      if (shouldFallbackFromBluesminds(err)) {
+        logger.warn('Bluesminds failed — falling back to OpenRouter/Groq', bluesmindsErrorMessage(err));
+      } else {
+        throw err;
+      }
+    }
+  }
+
   if (isOpenRouterConfigured()) {
     try {
       return await generateWithOpenRouter(rawArticle, userPrompt, compactPrompt);
@@ -243,7 +304,7 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
           return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
         } catch (groqErr) {
           if (isGroqRateLimitError(groqErr) && isOpenRouterConfigured()) {
-            logger.warn('Groq also rate limited after OpenRouter — retrying OpenRouter compact prompt');
+            logger.warn('Groq also rate limited — retrying OpenRouter compact prompt');
             await sleep(parseRetryAfterMs(groqErr));
             return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
           }
@@ -272,8 +333,9 @@ export async function generateSeoArticle(rawArticle) {
   const maxW = settings.maxWordCount ?? 800;
   const userPrompt = buildSeoArticleUserPrompt(rawArticle, tone, minW, maxW);
   const compactPrompt = buildCompactSeoArticleUserPrompt(rawArticle, tone, minW, maxW);
+  const bluesmindsPrompt = buildBluesmindsSeoArticleUserPrompt(rawArticle, tone, minW, maxW);
 
-  return generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt);
+  return generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt, bluesmindsPrompt);
 }
 
 export { rewriteArticle } from '../lib/openrouter.js';

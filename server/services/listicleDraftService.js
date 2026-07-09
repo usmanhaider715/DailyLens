@@ -3,6 +3,12 @@ import { normalizeSeoArticleOutput } from '../utils/seoArticleNormalize.js';
 import { finalizeSeoArticleBody } from '../utils/finalizeSeoArticle.js';
 import { LISTICLE_SYSTEM, buildListicleUserPrompt } from './seoListiclePrompt.js';
 import {
+  bluesmindsChatCompletion,
+  bluesmindsErrorMessage,
+  isBluesmindsConfigured,
+  shouldFallbackFromBluesminds,
+} from '../lib/bluesminds.js';
+import {
   isOpenRouterConfigured,
   isOpenRouterRetryableError,
   openRouterChatCompletion,
@@ -25,6 +31,24 @@ function escapeHtml(str) {
 }
 
 async function requestListicleJson(userPrompt) {
+  if (isBluesmindsConfigured()) {
+    try {
+      const { content } = await bluesmindsChatCompletion({
+        messages: [
+          { role: 'system', content: LISTICLE_SYSTEM },
+          { role: 'user', content: userPrompt },
+        ],
+        jsonMode: true,
+        maxTokens: 3600,
+        temperature: 0.25,
+      });
+      return parseJsonFromModelText(content);
+    } catch (err) {
+      if (!shouldFallbackFromBluesminds(err)) throw err;
+      logger.warn('Bluesminds listicle failed — trying fallback', bluesmindsErrorMessage(err));
+    }
+  }
+
   if (isOpenRouterConfigured()) {
     try {
       const { content } = await openRouterChatCompletion({

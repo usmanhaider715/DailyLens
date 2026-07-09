@@ -27,7 +27,9 @@ export const AUTO_SHARE_CATEGORIES = [
 ];
 
 const LOOKBACK_DAYS = 14;
-const PUBLISH_GAP_MS = Number(process.env.AUTO_SHARE_PUBLISH_GAP_MS) || 45000;
+const PUBLISH_GAP_MS =
+  Number(process.env.AUTO_SHARE_PUBLISH_GAP_MS) ||
+  (process.env.BLUESMINDS_API_KEY?.trim() ? 12000 : 45000);
 const JOB_TTL_MS = 2 * 60 * 60 * 1000;
 
 class StopRunError extends Error {

@@ -108,3 +108,29 @@ Categories: ${ARTICLE_CATEGORIES.join(', ')}
 
 JSON keys: headline, subheadline, slug, metaTitle, metaDescription, summary, body, category, tags, primaryKeyword, secondaryKeywords, entityKeywords, isBreaking, readTime, seoScore, geoScore, imagePrompt, heroImageAlt, faqSchema (2), followUpLinks (3).`;
 }
+
+/** Fast path for Bluesminds gpt-5.5 — shorter input, tighter word target, fewer tokens out. */
+export const SEO_ARTICLE_SYSTEM_FAST = `You are a senior news editor for The Daily Lens.
+Return ONE valid JSON object only. No markdown fences. Fresh AP-style rewrite.
+body: HTML only (<p>, <h2><strong>). summary/metaDescription/subheadline: plain text.
+followUpLinks: exactly 3 items (text + url). faqSchema: 2 items.
+Include: headline, subheadline, slug, metaTitle, metaDescription, summary, body, category, tags, primaryKeyword, secondaryKeywords, entityKeywords, isBreaking, readTime, seoScore, geoScore, imagePrompt, heroImageAlt.`;
+
+export function buildBluesmindsSeoArticleUserPrompt(raw, tone, minW, maxW) {
+  const sourceUrl = raw.sourceUrl || raw.url || '';
+  const suggested = raw.suggestedCategory ? `Category: "${raw.suggestedCategory}".` : '';
+  const fastMin = Math.min(minW, 420);
+  const fastMax = Math.min(maxW, 580);
+
+  return `Rewrite this news item for The Daily Lens. JSON only.
+Target body: ${fastMin}–${fastMax} words in HTML. Tone: ${tone}.
+${suggested}
+
+Title: ${raw.title}
+Source: ${raw.sourceName || 'Unknown'}
+URL: ${sourceUrl}
+Description: ${(raw.description || '').slice(0, 1200)}
+Content: ${(raw.content || raw.description || '').slice(0, 2200)}
+
+Categories: ${ARTICLE_CATEGORIES.join(', ')}`;
+}
