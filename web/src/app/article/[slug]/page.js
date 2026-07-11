@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
-import { stripHtml } from '@/utils/stripHtml';
 import { ArticleView } from '@/components/pages/ArticleView';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { buildNewsArticleJsonLd, buildBreadcrumbJsonLd } from '@/utils/seoHelpers';
-import { getArticleFeaturedImage } from '@/utils/articleImage';
+import { buildArticleMetadata } from '@/utils/articleMetadata';
 
 export const revalidate = 30;
 
@@ -12,25 +11,15 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   try {
     const data = await fetchApi(`/articles/${slug}`, { revalidate: 120 });
-    const article = data.article;
-    const description = stripHtml(article.summary);
-    const ogImage = getArticleFeaturedImage(article) || article.heroImage?.url;
-    const images = ogImage ? [{ url: ogImage }] : [];
-    return {
-      title: article.title,
-      description,
-      alternates: { canonical: `/article/${slug}` },
-      openGraph: {
-        title: article.title,
-        description,
-        type: 'article',
-        publishedTime: article.publishedAt,
-        images,
-      },
-      twitter: { card: 'summary_large_image', title: article.title, description, images },
-    };
+    const article = data?.article;
+    if (!article) return { title: 'Article not found' };
+    return buildArticleMetadata(article, slug);
   } catch {
-    return { title: 'Article not found' };
+    return {
+      title: 'Article not found',
+      description: 'This article could not be found on The Daily Lens.',
+      robots: { index: false, follow: false },
+    };
   }
 }
 

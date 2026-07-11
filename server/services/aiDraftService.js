@@ -1,7 +1,6 @@
 import { generateSeoArticle } from './groqService.js';
 import { resolveHeroImage, buildHeroCaption } from './imageDiscoveryService.js';
-import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
-import { isSourceNewsHero } from '../utils/heroPriority.js';
+import { persistFeaturedImageIfRemote } from '../utils/persistHeroImage.js';
 
 export async function buildAiDraftResponse(raw, suggestedCategory) {
   const article = await generateSeoArticle(raw);
@@ -9,21 +8,18 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
 
   const hero = await resolveHeroImage({
     title: article.headline,
-    imageUrl: raw.imageUrl,
-    url: raw.url,
-    sourceName: raw.sourceName,
-    sourceUrl: raw.sourceUrl,
-    category: article.category || suggestedCategory,
+    category,
     primaryKeyword: article.primaryKeyword,
+    tags: article.tags,
   });
-  const heroCaption = hero ? buildHeroCaption(hero) : '';
+  const heroCaption = hero?.url ? buildHeroCaption(hero) : '';
 
-  let featuredImage = '';
-  if (!isSourceNewsHero(hero)) {
+  let featuredImage = hero?.url || '';
+  if (featuredImage) {
     try {
-      featuredImage = await resolveFeaturedImageUrl(article.headline, category);
+      featuredImage = await persistFeaturedImageIfRemote(featuredImage, article.headline);
     } catch {
-      /* non-blocking */
+      /* use remote licensed URL */
     }
   }
 
@@ -39,12 +35,16 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
     geoScore: article.geoScore,
     readTime: article.readTime,
     isBreaking: !!article.isBreaking,
-    heroImageUrl: hero?.url || '',
+    heroImageUrl: featuredImage || hero?.url || '',
     heroImageAlt: article.heroImageAlt || heroCaption || article.headline,
-    heroImageCredit: hero?.credit || raw.sourceName,
-    heroImageCreditUrl: hero?.creditUrl || raw.sourceUrl,
-    heroImageSource: hero?.source || 'original',
+    heroImageCredit: hero?.credit || '',
+    heroImageCreditUrl: hero?.creditUrl || '',
+    heroImageSource: hero?.source || 'ai_generated',
     heroImageLicense: hero?.license || null,
+    imageSourceType: hero?.source || 'ai_generated',
+    imageAttribution: hero?.imageAttribution || hero?.credit || '',
+    verifiedQuotes: !!article.verifiedQuotes,
+    rewriteModel: article.rewriteModel || '',
     sourceAttribution: {
       sourceName: raw.sourceName,
       sourceUrl: raw.sourceUrl || raw.url,

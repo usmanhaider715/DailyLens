@@ -22,6 +22,8 @@ export function LiveEventWidget() {
     };
   }, []);
 
+  if (!items.length) return null;
+
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between">

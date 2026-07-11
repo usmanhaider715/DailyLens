@@ -55,7 +55,7 @@ export function ArticleBody({ article, related }) {
           />
           {article.heroImage?.alt && !htmlArticle && (
             <figcaption className="mt-2 text-center text-xs text-gray-500">
-              {article.heroImage.alt}
+              {article.imageAttribution || article.heroImage.credit || article.heroImage.alt}
             </figcaption>
           )}
         </figure>

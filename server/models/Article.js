@@ -9,7 +9,21 @@ const heroSchema = new mongoose.Schema(
     creditUrl: String,
     source: {
       type: String,
-      enum: ['original', 'generated', 'placeholder', 'upload', 'manual', 'search', 'ai', 'rss', 'feed'],
+      enum: [
+        'original',
+        'generated',
+        'placeholder',
+        'upload',
+        'manual',
+        'search',
+        'ai',
+        'rss',
+        'feed',
+        'unsplash',
+        'pexels',
+        'wikimedia',
+        'ai_generated',
+      ],
     },
     uploadFilename: String,
   },
@@ -22,6 +36,7 @@ const articleSchema = new mongoose.Schema(
     slug: { type: String, unique: true, index: true },
     originalTitle: String,
     originalUrl: { type: String, unique: true, sparse: true },
+    normalizedSourceUrl: { type: String, index: true },
     urlHash: { type: String, unique: true, index: true },
     summary: { type: String, required: true },
     body: { type: String, required: true },
@@ -45,6 +60,14 @@ const articleSchema = new mongoose.Schema(
     tags: [String],
     heroImage: heroSchema,
     featuredImage: { type: String },
+    imageSourceType: {
+      type: String,
+      enum: ['unsplash', 'pexels', 'wikimedia', 'ai_generated', 'upload', 'manual', 'search', ''],
+      default: '',
+    },
+    imageAttribution: { type: String, default: '' },
+    verifiedQuotes: { type: Boolean, default: false },
+    rewriteModel: { type: String, enum: ['gpt', 'groq', ''], default: '' },
     author: { type: String, default: 'AI Editorial Team' },
     source: {
       name: String,
@@ -80,5 +103,6 @@ articleSchema.index({ 'forecast.enabled': 1, publishedAt: -1 });
 
 articleSchema.index({ title: 'text', body: 'text', tags: 'text' });
 articleSchema.index({ category: 1, publishedAt: -1 });
+articleSchema.index({ normalizedSourceUrl: 1, publishedAt: -1 });
 
 export const Article = mongoose.model('Article', articleSchema);

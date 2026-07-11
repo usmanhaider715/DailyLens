@@ -1,5 +1,7 @@
 import crypto from 'crypto';
+import { normalizeSourceUrl } from './normalizeSourceUrl.js';
 
 export function hashUrl(url) {
-  return crypto.createHash('md5').update(url.trim()).digest('hex');
+  const normalized = normalizeSourceUrl(url);
+  return crypto.createHash('md5').update(normalized || String(url || '').trim()).digest('hex');
 }

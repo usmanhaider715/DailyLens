@@ -47,10 +47,6 @@ export function resolveArticleDisplayHero(article) {
     return featured || heroUrl || null;
   }
 
-  if (isSourceNewsHero(hero || { url: heroUrl, source: heroSource })) {
-    return heroUrl;
-  }
-
   if (featured) {
     return featured;
   }
@@ -59,7 +55,8 @@ export function resolveArticleDisplayHero(article) {
     return heroUrl;
   }
 
-  if (heroUrl && heroSource !== 'placeholder') {
+  const licensedSources = new Set(['unsplash', 'pexels', 'wikimedia', 'ai_generated', 'ai', 'upload', 'search', 'manual']);
+  if (heroUrl && licensedSources.has(String(heroSource).toLowerCase())) {
     return heroUrl;
   }
 

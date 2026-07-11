@@ -1,11 +1,9 @@
 import cron from 'node-cron';
 import { Article } from '../models/Article.js';
 import { Category } from '../models/Category.js';
-import { getSiteSettings } from '../models/SiteSettings.js';
 import { fetchAllNews, extractArticleFromUrl } from '../services/newsService.js';
 import { processArticle, processBatch } from '../services/aiService.js';
 import { generateSeoArticle } from '../services/groqService.js';
-import { generateAndUploadImage } from '../services/imageService.js';
 import { slugify } from '../utils/slugify.js';
 import { emitBreakingNews } from '../services/socketService.js';
 import { logger } from '../utils/logger.js';
@@ -13,7 +11,9 @@ import { updateTrendingCache } from './trendingUpdater.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
-import { isSourceNewsHero } from '../utils/heroPriority.js';
+import { checkDuplicateBeforeInsert, attachNormalizedSourceUrl } from '../services/duplicateArticleService.js';
+import { resolveLicensedHeroImage, buildImageAttribution } from '../services/licensedImageService.js';
+import { persistFeaturedImageIfRemote } from '../utils/persistHeroImage.js';
 
 async function ensureUniqueSlug(base) {
   let slug = base || 'article';
@@ -29,31 +29,46 @@ async function bumpCategoryCount(categoryName) {
   await Category.updateOne({ name: categoryName }, { $inc: { articleCount: 1 } });
 }
 
-async function saveFromAi(raw, parsed, heroImage, published, featuredImage = '') {
+async function saveFromAi(raw, parsed, heroImage, published, featuredImage = '', meta = {}) {
+  const dup = await checkDuplicateBeforeInsert({
+    sourceUrl: raw.url,
+    headline: parsed.headline,
+    category: parsed.category,
+  });
+  if (dup) return dup.article;
+
   const baseSlug = slugify(parsed.headline);
   const slug = await ensureUniqueSlug(baseSlug);
-  const doc = await Article.create({
-    title: parsed.headline,
-    slug,
-    originalTitle: raw.title,
-    originalUrl: raw.url,
-    urlHash: raw.urlHash,
-    summary: parsed.summary,
-    body: parsed.body,
-    category: parsed.category,
-    tags: parsed.tags || [],
-    heroImage,
-    featuredImage: featuredImage || undefined,
-    author: 'AI Editorial Team',
-    source: { name: raw.sourceName, url: raw.sourceUrl },
-    seoScore: parsed.seoScore,
-    readTime: parsed.readTime,
-    isBreaking: !!parsed.isBreaking,
-    isFeatured: false,
-    isPublished: published,
-    publishedAt: raw.publishedAt || new Date(),
-    aiProcessedAt: new Date(),
-  });
+  const payload = attachNormalizedSourceUrl(
+    {
+      title: parsed.headline,
+      slug,
+      originalTitle: raw.title,
+      originalUrl: raw.url,
+      urlHash: raw.urlHash,
+      summary: parsed.summary,
+      body: parsed.body,
+      category: parsed.category,
+      tags: parsed.tags || [],
+      heroImage,
+      featuredImage: featuredImage || undefined,
+      imageSourceType: meta.imageSourceType || heroImage?.source || '',
+      imageAttribution: meta.imageAttribution || '',
+      verifiedQuotes: !!parsed.verifiedQuotes,
+      rewriteModel: parsed.rewriteModel || '',
+      author: 'AI Editorial Team',
+      source: { name: raw.sourceName, url: raw.sourceUrl },
+      seoScore: parsed.seoScore,
+      readTime: parsed.readTime,
+      isBreaking: !!parsed.isBreaking,
+      isFeatured: false,
+      isPublished: published,
+      publishedAt: raw.publishedAt || new Date(),
+      aiProcessedAt: new Date(),
+    },
+    raw.url,
+  );
+  const doc = await Article.create(payload);
   await bumpCategoryCount(parsed.category);
   return doc;
 }
@@ -83,39 +98,46 @@ async function saveFailed(raw, errMsg) {
 }
 
 async function persistProcessed(raw, parsed) {
-  const settings = await getSiteSettings();
-  const baseSlug = slugify(parsed.headline);
-  const slug = await ensureUniqueSlug(baseSlug);
-  const useDallE = settings.generateAiImages !== false;
-  let heroImage;
-  if (useDallE && process.env.OPENAI_API_KEY) {
-    heroImage = await generateAndUploadImage(parsed.imagePrompt, slug, {
-      originalImageUrl: raw.imageUrl,
-      category: parsed.category,
-    });
+  const dup = await checkDuplicateBeforeInsert({
+    sourceUrl: raw.url,
+    headline: parsed.headline,
+    category: parsed.category,
+  });
+  if (dup) return dup.article;
+
+  const licensed = await resolveLicensedHeroImage({
+    title: parsed.headline,
+    category: parsed.category,
+    keywords: parsed.tags,
+  });
+  let featuredImage = licensed.url || '';
+  if (featuredImage) {
+    try {
+      featuredImage = await persistFeaturedImageIfRemote(featuredImage, slugify(parsed.headline));
+    } catch {
+      /* keep remote licensed URL */
+    }
   } else {
-    heroImage = await generateAndUploadImage(null, slug, {
-      originalImageUrl: raw.imageUrl,
-      category: parsed.category,
-    });
+    featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
   }
 
-  let featuredImage = '';
-  const normalizedHero = normalizeHeroImage(
-    raw.imageUrl ? { url: raw.imageUrl, alt: parsed.headline, source: 'original' } : null,
+  const heroImage = normalizeHeroImage(
+    featuredImage
+      ? {
+          url: featuredImage,
+          alt: parsed.headline,
+          credit: licensed.credit,
+          creditUrl: licensed.creditUrl,
+          source: licensed.source || 'ai_generated',
+        }
+      : null,
     parsed.category,
   );
-  if (!isSourceNewsHero(normalizedHero)) {
-    if (process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY) {
-      try {
-        featuredImage = await resolveFeaturedImageUrl(parsed.headline, parsed.category);
-      } catch {
-        /* non-blocking */
-      }
-    }
-  }
 
-  const doc = await saveFromAi(raw, parsed, heroImage, true, featuredImage);
+  const doc = await saveFromAi(raw, parsed, heroImage, true, featuredImage, {
+    imageSourceType: licensed.source,
+    imageAttribution: buildImageAttribution(licensed),
+  });
 
   if (parsed.isBreaking) {
     emitBreakingNews({
@@ -137,6 +159,13 @@ async function rewriteArticle(raw) {
 }
 
 export async function processRawArticle(raw) {
+  const dup = await checkDuplicateBeforeInsert({
+    sourceUrl: raw.url,
+    headline: raw.title,
+    category: raw.suggestedCategory || 'World',
+  });
+  if (dup) return dup.article;
+
   let parsed;
   try {
     parsed = await rewriteArticle(raw);

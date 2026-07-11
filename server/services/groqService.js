@@ -27,6 +27,8 @@ import {
   parseJsonFromModelText,
 } from '../lib/openrouter.js';
 import { logger } from '../utils/logger.js';
+import { verifyArticleQuotes, mapModelToRewriteLabel } from '../utils/quoteVerification.js';
+import { logAiFallback } from '../models/AiFallbackLog.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
@@ -134,12 +136,24 @@ async function requestGroq(apiKey, model, userPrompt, { jsonMode = true } = {}) 
 
 async function finalizeFromParsed(parsed, rawArticle, modelLabel) {
   const normalized = normalizeSeoArticleOutput(parsed, rawArticle);
+  const sourceText = rawArticle.content || rawArticle.description || rawArticle.title || '';
+  const quoteCheck = verifyArticleQuotes(normalized.body, sourceText);
+  if (quoteCheck.rejected) {
+    const err = new Error('Article rejected: unverified quotes in rewrite');
+    err.code = 'UNVERIFIED_QUOTES';
+    throw err;
+  }
+  normalized.body = quoteCheck.body;
+  normalized.verifiedQuotes = quoteCheck.verified;
+  normalized.rewriteModel = mapModelToRewriteLabel(modelLabel);
   const finalized = finalizeSeoArticleBody(normalized, rawArticle);
   finalized.sourceAttribution = {
     sourceName: rawArticle.sourceName,
     sourceUrl: rawArticle.url || rawArticle.sourceUrl,
   };
   finalized.aiModelUsed = modelLabel;
+  finalized.verifiedQuotes = quoteCheck.verified;
+  finalized.rewriteModel = normalized.rewriteModel;
   return finalized;
 }
 
@@ -288,6 +302,14 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
     } catch (err) {
       if (shouldFallbackFromBluesminds(err)) {
         logger.warn('Bluesminds failed — falling back to OpenRouter/Groq', bluesmindsErrorMessage(err));
+        await logAiFallback({
+          primaryProvider: 'bluesminds',
+          fallbackProvider: isOpenRouterConfigured() ? 'openrouter' : 'groq',
+          reason: 'bluesminds_failure',
+          errorMessage: bluesmindsErrorMessage(err),
+          articleTitle: rawArticle.title,
+          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+        });
       } else {
         throw err;
       }
@@ -300,6 +322,14 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
     } catch (err) {
       if (shouldFallbackFromOpenRouterToGroq(err)) {
         logger.warn('OpenRouter failed — falling back to Groq', openRouterErrorMessage(err));
+        await logAiFallback({
+          primaryProvider: 'openrouter',
+          fallbackProvider: 'groq',
+          reason: 'openrouter_failure',
+          errorMessage: openRouterErrorMessage(err),
+          articleTitle: rawArticle.title,
+          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+        });
         try {
           return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
         } catch (groqErr) {
@@ -320,6 +350,14 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
   } catch (groqErr) {
     if (isOpenRouterConfigured() && (isGroqRateLimitError(groqErr) || isOpenRouterContentError(groqErr))) {
       logger.warn('Groq failed — falling back to OpenRouter', groqErrorMessage(groqErr));
+      await logAiFallback({
+        primaryProvider: 'groq',
+        fallbackProvider: 'openrouter',
+        reason: 'groq_failure',
+        errorMessage: groqErrorMessage(groqErr),
+        articleTitle: rawArticle.title,
+        sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+      });
       return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
     }
     throw groqErr;

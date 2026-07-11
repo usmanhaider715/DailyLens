@@ -44,8 +44,12 @@ export function BreakingNewsTicker({ initialItems = [] }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1 px-2 text-[10px] text-white/90 sm:px-4 sm:text-xs">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-white animate-pulse" />
-        <span className="whitespace-nowrap">{liveCount} online</span>
+        {liveCount > 0 && (
+          <>
+            <span className="h-2 w-2 shrink-0 rounded-full bg-white animate-pulse" />
+            <span className="whitespace-nowrap">{liveCount} online</span>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isUsableImageUrl, isRejectedHeroImageUrl, unsplashHeroUrl } from '../utils/heroImageUtils.js';
+import { resolveLicensedHeroImage, buildImageAttribution } from './licensedImageService.js';
 
 async function fetchOgImage(pageUrl) {
   try {
@@ -147,80 +148,23 @@ function stripHtml(s) {
 }
 
 /**
- * Resolve a hero image from the story source, page metadata, or Google Image Search.
+ * Resolve a licensed hero image — never hotlink publisher-hosted photos.
  */
-export async function resolveHeroImage({
-  title,
-  imageUrl,
-  url,
-  sourceName,
-  sourceUrl,
-  category,
-  primaryKeyword,
-}) {
-  const publisher = sourceName || 'Original publisher';
-  const storyLink = sourceUrl || url || '';
-  const searchQuery = [title, primaryKeyword, category, 'news photo']
-    .filter(Boolean)
-    .join(' ')
-    .slice(0, 120);
-
-  if (isUsableImageUrl(imageUrl)) {
-    return {
-      url: imageUrl,
-      alt: title || 'News image',
-      credit: publisher,
-      creditUrl: storyLink,
-      source: 'original',
-      viaGoogle: false,
-    };
-  }
-
-  const og = url ? await fetchOgImage(url) : null;
-  if (og) {
-    return {
-      url: og,
-      alt: title || 'News image',
-      credit: publisher,
-      creditUrl: storyLink,
-      source: 'original',
-      viaGoogle: false,
-    };
-  }
-
-  const wiki = await searchWikimediaCommons(searchQuery);
-  if (wiki) {
-    return {
-      url: wiki.url,
-      alt: title || 'News image',
-      credit: wiki.credit,
-      creditUrl: wiki.creditUrl,
-      source: 'original',
-      viaGoogle: false,
-      license: wiki.license,
-    };
-  }
-
-  const google = await searchGoogleImage(searchQuery, { freeUseOnly: true });
-  if (google && !isRejectedHeroImageUrl(google.url)) {
-    return {
-      url: google.url,
-      alt: title || 'News image',
-      credit: google.credit,
-      creditUrl: google.creditUrl || storyLink,
-      source: 'original',
-      viaGoogle: true,
-      license: google.license,
-    };
-  }
+export async function resolveHeroImage({ title, category, primaryKeyword, tags = [] }) {
+  const licensed = await resolveLicensedHeroImage({
+    title,
+    category,
+    keywords: [primaryKeyword, ...(Array.isArray(tags) ? tags : [])].filter(Boolean),
+  });
 
   return {
-    url: unsplashHeroUrl(category),
+    url: licensed.url,
     alt: title || 'News image',
-    credit: 'Unsplash (free to use)',
-    creditUrl: 'https://unsplash.com/license',
-    source: 'placeholder',
-    viaGoogle: false,
+    credit: licensed.credit,
+    creditUrl: licensed.creditUrl,
+    source: licensed.source,
+    license: licensed.license,
+    imageAttribution: buildImageAttribution(licensed),
   };
 }
 

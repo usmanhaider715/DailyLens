@@ -65,10 +65,9 @@ export function emitLiveCount(n) {
 
 export function broadcastLiveCount() {
   if (!ioRef) return;
-  nudgePublicCount();
   const real = getLiveConnectionCount();
   if (real > peakLiveCount) peakLiveCount = real;
-  emitLiveCount(publicDisplayCount);
+  emitLiveCount(real);
 }
 
 /** Notify clients that live scoreboards were refreshed (cricket, soccer, etc.). */

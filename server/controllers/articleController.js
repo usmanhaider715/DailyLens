@@ -1,4 +1,5 @@
 import { Article } from '../models/Article.js';
+import { ArticleRedirect } from '../models/ArticleRedirect.js';
 import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheService.js';
 import { publicArticleFilter } from '../utils/publicArticleFilter.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
@@ -172,7 +173,13 @@ export async function getArticleBySlug(req, res, next) {
     }
 
     const article = await Article.findOne({ slug, ...publicArticleFilter }).lean();
-    if (!article) return res.status(404).json({ message: 'Article not found' });
+    if (!article) {
+      const redirect = await ArticleRedirect.findOne({ fromPath: `/article/${slug}` }).lean();
+      if (redirect?.toPath) {
+        return res.redirect(redirect.statusCode || 301, redirect.toPath);
+      }
+      return res.status(404).json({ message: 'Article not found' });
+    }
 
     setImmediate(async () => {
       try {

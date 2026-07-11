@@ -73,18 +73,19 @@ export function Navbar() {
             onMouseEnter={() => setSportsOpen(true)}
             onMouseLeave={() => setSportsOpen(false)}
           >
-            <button
-              type="button"
+            <Link
+              href="/category/Sports"
               className={`inline-flex items-center gap-1 text-sm font-medium ${
                 sportsActive
                   ? 'text-primary-700 underline decoration-2 underline-offset-8'
                   : 'text-gray-700 hover:text-primary-700 dark:text-gray-200'
               }`}
               aria-expanded={sportsOpen}
+              onFocus={() => setSportsOpen(true)}
             >
               Sports
               <ChevronDown className={`h-4 w-4 transition ${sportsOpen ? 'rotate-180' : ''}`} />
-            </button>
+            </Link>
             {sportsOpen && (
               <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-gray-100 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
                 {sportsLinks.map((item) => (

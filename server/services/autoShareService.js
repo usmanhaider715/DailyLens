@@ -6,6 +6,7 @@ import { getSiteSettings } from '../models/SiteSettings.js';
 import { buildAiDraftResponse } from '../services/aiDraftService.js';
 import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.js';
 import { slugify } from '../utils/slugify.js';
+import { checkDuplicateBeforeInsert, attachNormalizedSourceUrl } from '../services/duplicateArticleService.js';
 import { fetchLatestNewsFeedForAdmin, RSS_FEEDS } from '../services/newsService.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { getEasternDateParts, formatEasternTime } from '../utils/usEasternTime.js';
@@ -182,7 +183,11 @@ async function fetchHotFeedItems(sourceNames, category, limit) {
   for (const item of items) {
     const key = item.url || item.title;
     if (!key || seen.has(key)) continue;
-    const dup = await Article.exists({ originalUrl: item.url });
+    const dup = await checkDuplicateBeforeInsert({
+      sourceUrl: item.url,
+      headline: item.title,
+      category,
+    });
     if (dup) continue;
     seen.add(key);
     out.push({ ...item, suggestedCategory: category });
@@ -192,6 +197,17 @@ async function fetchHotFeedItems(sourceNames, category, limit) {
 }
 
 async function publishFromFeedItem(item, category) {
+  const dup = await checkDuplicateBeforeInsert({
+    sourceUrl: item.url,
+    headline: item.title,
+    category,
+  });
+  if (dup) {
+    const err = new Error(`Duplicate: ${dup.article.slug}`);
+    err.code = 'DUPLICATE_ARTICLE';
+    throw err;
+  }
+
   const raw = {
     title: item.title,
     description: item.description || '',
@@ -218,9 +234,13 @@ async function publishFromFeedItem(item, category) {
           alt: draft.heroImageAlt || draft.title,
           credit: draft.heroImageCredit || '',
           creditUrl: draft.heroImageCreditUrl || '',
-          source: draft.heroImageSource || 'original',
+          source: draft.heroImageSource || 'ai_generated',
         }
       : undefined,
+    imageSourceType: draft.imageSourceType || draft.heroImageSource || '',
+    imageAttribution: draft.imageAttribution || '',
+    verifiedQuotes: !!draft.verifiedQuotes,
+    rewriteModel: draft.rewriteModel || '',
     isPublished: true,
     isFeatured: true,
     seoScore: draft.seoScore ?? 7,
@@ -232,6 +252,7 @@ async function publishFromFeedItem(item, category) {
     publishedAt: raw.publishedAt,
   };
   const payload = buildArticlePayload(input);
+  attachNormalizedSourceUrl(payload, raw.url);
   payload.slug = await ensureUniqueSlug(payload.slug || slugify(payload.title));
   payload.lastAutoSharedAt = new Date();
   return Article.create(payload);

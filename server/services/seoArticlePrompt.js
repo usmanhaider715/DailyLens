@@ -11,6 +11,11 @@ NON-NEGOTIABLE:
 5. Do NOT put Sources, Editorial notice, Image credit, Related reading, or FAQ blocks inside body (the CMS adds those).
 6. Pick exactly one category from the allowed list.
 
+QUOTES (CRITICAL):
+- Only include a direct quotation if it appears verbatim in the source text provided.
+- Do not invent, paraphrase-as-quote, or attribute any quote not present in the source.
+- If no quotable line exists, describe what was said in your own words instead.
+
 HEADLINE: 8–12 words, 10–110 characters. Primary keyword in first 4 words. Named entity required. Active voice. No clickbait. No dates in headline. Same text as metaTitle/H1.
 
 SUBHEADLINE: 1 sentence, 20–30 words, secondary keyword, declarative (not a question).

@@ -25,15 +25,17 @@ function needsProxy(url) {
   return u.protocol === 'http:' || u.protocol === 'https:';
 }
 
-/** Resolve hero URL for <img src> — local paths direct; external URLs load in the browser. */
+/** Resolve hero URL for <img src> — local paths direct; never proxy publisher images. */
 export function resolveHeroSrc(url, category) {
   const trimmed = (url || '').trim();
   if (!trimmed) return fallbackHeroUrl(category);
   if (trimmed.startsWith('data:')) return trimmed;
   if (trimmed.startsWith('/uploads/')) return trimmed;
 
-  // In the browser, use the original URL — many publishers block server-side proxy/fetch.
-  if (typeof window !== 'undefined') return trimmed;
+  if (typeof window !== 'undefined') {
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return trimmed;
+  }
 
   if (needsProxy(trimmed)) {
     return `/api/images/proxy?url=${encodeURIComponent(trimmed)}`;

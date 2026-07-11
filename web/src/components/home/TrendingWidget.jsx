@@ -22,6 +22,8 @@ export function TrendingWidget() {
     };
   }, []);
 
+  if (!items.length) return null;
+
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <h3 className="font-display text-lg font-bold text-gray-900 dark:text-white">Trending Now</h3>

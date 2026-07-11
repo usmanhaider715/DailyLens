@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isUsableImageUrl } from '../utils/heroImageUtils.js';
+import { isPublisherHostedImageUrl } from '../services/licensedImageService.js';
 import { assertPublicHttpUrl } from '../utils/ssrfGuard.js';
 import { saveCompressedHeroFile, heroUploadPublicUrl } from '../utils/heroFileUpload.js';
 
@@ -27,6 +28,10 @@ export async function proxyHeroImage(req, res, next) {
 
     if (!isUsableImageUrl(raw)) {
       return res.status(400).json({ message: 'Invalid image URL' });
+    }
+
+    if (isPublisherHostedImageUrl(raw)) {
+      return res.status(403).json({ message: 'Publisher-hosted images cannot be proxied' });
     }
 
     await assertPublicHttpUrl(raw);

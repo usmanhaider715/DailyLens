@@ -1,6 +1,7 @@
 import { Article } from '../models/Article.js';
 import { slugify } from './slugify.js';
 import { hashUrl } from './hashUrl.js';
+import { normalizeSourceUrl } from './normalizeSourceUrl.js';
 import { stripHtml } from './stripHtml.js';
 import { parseReadTimeMinutes } from './seoArticleNormalize.js';
 import { normalizeHeroImage, isUploadedHeroUrl } from './heroImageUtils.js';
@@ -81,6 +82,10 @@ export function buildArticlePayload(input, existing = null) {
     seoScore: input.seoScore ?? existing?.seoScore ?? 7,
     readTime: parseReadTimeMinutes(input.readTime, body),
     featuredImage: featuredImage || undefined,
+    imageSourceType: input.imageSourceType || existing?.imageSourceType || '',
+    imageAttribution: input.imageAttribution || existing?.imageAttribution || '',
+    verifiedQuotes: input.verifiedQuotes ?? existing?.verifiedQuotes ?? false,
+    rewriteModel: input.rewriteModel || existing?.rewriteModel || '',
     isBreaking: !!input.isBreaking,
     isFeatured: !!input.isFeatured,
     isPublished: input.isPublished !== false,
@@ -101,6 +106,7 @@ export function buildArticlePayload(input, existing = null) {
     if (sourceUrl && /^https?:\/\//i.test(sourceUrl)) {
       payload.originalUrl = sourceUrl;
       payload.urlHash = input.urlHash || hashUrl(sourceUrl);
+      payload.normalizedSourceUrl = normalizeSourceUrl(sourceUrl);
       payload.originalTitle = input.originalTitle?.trim() || title;
       payload.source = input.source?.name
         ? {
