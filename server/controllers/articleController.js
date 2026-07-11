@@ -2,6 +2,7 @@ import { Article } from '../models/Article.js';
 import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheService.js';
 import { publicArticleFilter } from '../utils/publicArticleFilter.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
+import { recordArticleView } from '../services/viewStatsService.js';
 
 function enrichArticleHero(article) {
   if (!article) return article;
@@ -158,6 +159,7 @@ export async function getArticleBySlug(req, res, next) {
       setImmediate(async () => {
         try {
           await Article.updateOne({ _id: cached.article._id }, { $inc: { views: 1 } });
+          await recordArticleView();
         } catch {
           /* noop */
         }
@@ -175,6 +177,7 @@ export async function getArticleBySlug(req, res, next) {
     setImmediate(async () => {
       try {
         await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
+        await recordArticleView();
       } catch {
         /* noop */
       }

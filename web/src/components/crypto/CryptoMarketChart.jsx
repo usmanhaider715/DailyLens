@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatUsDateTime } from '@/utils/formatDate';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
@@ -25,21 +26,8 @@ function formatUsd(n, { compact = false } = {}) {
 }
 
 function formatDateTime(ts, rangeId) {
-  const d = new Date(ts);
-  if (rangeId === '1d') {
-    return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  if (rangeId === '1d') return formatUsDateTime(ts);
+  return formatUsDateTime(ts, { hour: undefined, minute: undefined, timeZoneName: undefined });
 }
 
 function calcChange(current, previous) {

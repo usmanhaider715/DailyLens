@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Radio, RefreshCw } from 'lucide-react';
 import { api } from '@/services/api';
 import { ScoreCard } from './ScoreWidgets.jsx';
+import { formatUsTime } from '@/utils/formatDate';
 
 export function LiveMatchHero({ embedded = false }) {
   const [game, setGame] = useState(null);
@@ -94,7 +95,7 @@ export function LiveMatchHero({ embedded = false }) {
         </div>
         {updatedAt && (
           <p className="mt-3 text-right text-[10px] text-white/40">
-            Updated {new Date(updatedAt).toLocaleTimeString()}
+            Updated {formatUsTime(updatedAt)} ET
           </p>
         )}
       </div>

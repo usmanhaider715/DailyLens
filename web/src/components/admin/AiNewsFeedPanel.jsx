@@ -7,8 +7,7 @@ import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import BatchArticleReviewPanel from './BatchArticleReviewPanel.jsx';
 import { MAX_BATCH } from '@/utils/batchPublish';
-
-const MAX_BATCH_SIZE = MAX_BATCH;
+import { formatArticleDateTime } from '@/utils/formatDate';
 
 const CATEGORY_COLORS = {
   World: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
@@ -24,19 +23,7 @@ const CATEGORY_COLORS = {
   Weather: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-900/50 dark:text-cyan-200',
 };
 
-function formatDate(d) {
-  if (!d) return '';
-  try {
-    return new Date(d).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-}
+const MAX_BATCH_SIZE = MAX_BATCH;
 
 function CategoryBadge({ category }) {
   const cls = CATEGORY_COLORS[category] || CATEGORY_COLORS.World;
@@ -298,7 +285,7 @@ export function AiNewsFeedPanel({ open, onClose, onApplyDraft }) {
                                 {item.description}
                               </p>
                             ) : null}
-                            <p className="mt-1 text-xs text-gray-400">{formatDate(item.publishedAt)}</p>
+                            <p className="mt-1 text-xs text-gray-400">{formatArticleDateTime(item.publishedAt)}</p>
                           </div>
                         </div>
                         <div className="mt-3 flex justify-end">

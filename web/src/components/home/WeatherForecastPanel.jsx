@@ -1,4 +1,5 @@
 import { CloudRain, CloudSun, Sun, Wind } from 'lucide-react';
+import { formatUsTime, US_TIMEZONE } from '@/utils/formatDate';
 
 function WeatherIcon({ code, className = 'h-8 w-8' }) {
   if (code === 0 || code === 1) return <Sun className={`${className} text-amber-300`} />;
@@ -10,7 +11,7 @@ function WeatherIcon({ code, className = 'h-8 w-8' }) {
 
 function formatDay(dateStr) {
   const d = new Date(`${dateStr}T12:00:00`);
-  return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d);
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: US_TIMEZONE }).format(d);
 }
 
 export function WeatherForecastPanel({ forecast, size = 'default' }) {
@@ -41,7 +42,7 @@ export function WeatherForecastPanel({ forecast, size = 'default' }) {
           </div>
           {forecast.updatedAt && (
             <p className="text-[10px] text-white/40">
-              Updated {new Date(forecast.updatedAt).toLocaleTimeString()}
+              Updated {formatUsTime(forecast.updatedAt)} ET
             </p>
           )}
         </div>

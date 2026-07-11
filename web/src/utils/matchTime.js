@@ -1,18 +1,7 @@
-import { detectTimezone } from './visitorLocation';
+import { formatUsDateTime } from './formatDate';
 
-export function formatMatchTimeLocal(isoDate, timezone) {
+/** Format match / event times in US Eastern. */
+export function formatMatchTimeLocal(isoDate) {
   if (!isoDate) return '';
-  try {
-    return new Date(isoDate).toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: timezone || detectTimezone(),
-      timeZoneName: 'short',
-    });
-  } catch {
-    return new Date(isoDate).toLocaleString();
-  }
+  return formatUsDateTime(isoDate);
 }

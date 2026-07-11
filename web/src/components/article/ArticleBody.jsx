@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { CategoryBadge } from '../common/CategoryBadge.jsx';
-import { formatArticleDate } from '../../utils/formatDate.js';
+import { formatArticleDateTime } from '@/utils/formatDate';
 import { ShareButtons } from './ShareButtons.jsx';
 import { RelatedArticles } from './RelatedArticles.jsx';
 import { ArticleAd } from './ArticleAd.jsx';
@@ -74,7 +74,7 @@ export function ArticleBody({ article, related }) {
             {article.author || 'The Daily Lens Desk'}
           </Link>
           <span>·</span>
-          <span>{formatArticleDate(article.publishedAt)}</span>
+          <span>{formatArticleDateTime(article.publishedAt)}</span>
           <span>·</span>
           <span>{article.readTime || 3} min read</span>
         </div>

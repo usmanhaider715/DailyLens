@@ -1,5 +1,7 @@
 'use client';
 
+import { formatUsTime } from '@/utils/formatDate';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, Radio, RefreshCw } from 'lucide-react';
 import { api } from '@/services/api';
@@ -238,7 +240,7 @@ export function LiveScoreboard({ compact = false, defaultLeague = 'soccer' }) {
         )}
         {updatedAt && (
           <p className="mt-3 text-right text-[10px] text-white/40">
-            Updated {new Date(updatedAt).toLocaleTimeString()}
+            Updated {formatUsTime(updatedAt)} ET
           </p>
         )}
       </div>

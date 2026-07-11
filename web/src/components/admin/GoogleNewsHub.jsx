@@ -10,6 +10,7 @@ import BatchArticleReviewPanel from './BatchArticleReviewPanel.jsx';
 import { draftToEditorForm, draftToPublishPayload, saveAdminDraft } from '@/utils/adminDraft';
 import { MAX_BATCH } from '@/utils/batchPublish';
 import { Sparkles, TrendingUp, Newspaper, Search } from 'lucide-react';
+import { formatArticleDateTime } from '@/utils/formatDate';
 
 const CATEGORIES = [
   'World',
@@ -68,9 +69,7 @@ function StoryRow({ story, onWrite, busyKey, label, selected, onToggle, bulkMode
           <p className="text-sm font-medium text-gray-900 dark:text-white">{story.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">
             {story.sourceName}
-            {story.publishedAt
-              ? ` · ${new Date(story.publishedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-              : ''}
+            {story.publishedAt ? ` · ${formatArticleDateTime(story.publishedAt)}` : ''}
           </p>
         </div>
       </div>

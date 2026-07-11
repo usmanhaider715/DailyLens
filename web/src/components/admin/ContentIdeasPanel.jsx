@@ -1,5 +1,7 @@
 'use client';
 
+import { formatArticleDateTime } from '@/utils/formatDate';
+
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -454,7 +456,7 @@ export function ContentIdeasPanel() {
                   {reports.map((r) => (
                     <tr key={r._id} className="border-b border-gray-100 dark:border-gray-800">
                       <td className="py-3 pr-4 whitespace-nowrap">
-                        {new Date(r.createdAt).toLocaleString()}
+                        {formatArticleDateTime(r.createdAt)}
                       </td>
                       <td className="py-3 pr-4">{r.category}</td>
                       <td className="py-3 pr-4">

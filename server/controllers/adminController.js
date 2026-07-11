@@ -10,6 +10,8 @@ import { cleanupHeroUpload, cleanupReplacedHeroUpload } from '../utils/heroUploa
 import { getStorageStats } from '../utils/storageStats.js';
 import { slugify } from '../utils/slugify.js';
 import { Category } from '../models/Category.js';
+import { getEasternDateParts } from '../utils/usEasternTime.js';
+import { getViewsChartSeries } from '../services/viewStatsService.js';
 
 const adminListProjection = {
   title: 1,
@@ -329,9 +331,15 @@ export async function adminAnalytics(req, res, next) {
     ]);
     const totalViews = totalViewsAgg[0]?.views || 0;
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const articlesToday = await Article.countDocuments({ createdAt: { $gte: startOfDay } });
+    const dateKey = getEasternDateParts().dateKey;
+    const articlesToday = await Article.countDocuments({
+      $expr: {
+        $eq: [
+          { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'America/New_York' } },
+          dateKey,
+        ],
+      },
+    });
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const trending = await Article.find({ isPublished: true, publishedAt: { $gte: since } })
@@ -348,6 +356,7 @@ export async function adminAnalytics(req, res, next) {
     ]);
 
     const storage = await getStorageStats();
+    const viewsChart = await getViewsChartSeries();
 
     res.json({
       totalViews,
@@ -356,6 +365,8 @@ export async function adminAnalytics(req, res, next) {
       topCategories,
       liveTraffic: getLiveTrafficStats(),
       storage,
+      viewsChart,
+      easternNow: getEasternDateParts(),
     });
   } catch (e) {
     next(e);

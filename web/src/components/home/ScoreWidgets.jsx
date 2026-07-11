@@ -110,7 +110,7 @@ export function ScoreCard({ game, size = 'default', timezone, isPinned, onToggle
           }`}
         >
           {game.status === 'pre' && game.statusText ? `${game.statusText} · ` : ''}
-          {formatMatchTimeLocal(localStart, timezone)}
+          {formatMatchTimeLocal(localStart)}
         </p>
       )}
       <div className={`space-y-2 ${isHero ? 'space-y-4 sm:space-y-5' : ''}`}>

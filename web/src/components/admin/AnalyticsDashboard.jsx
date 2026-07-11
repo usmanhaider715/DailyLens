@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { Activity, Database, Globe, HardDrive, Radio, Users, Zap } from 'lucide-react';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
+import { ViewsChart } from './ViewsChart.jsx';
+import { formatArticleDateTime } from '@/utils/formatDate';
 
 const LIVE_TRAFFIC_DETAILS = [
   {
@@ -57,7 +59,18 @@ export function AnalyticsDashboard() {
     <div>
       <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">Dashboard</h1>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Site performance, article stats, and live visitor traffic.
+        Site performance, article stats, and live visitor traffic. All times US Eastern (ET).
+        {data?.easternNow ? (
+          <span className="ml-1 font-medium text-gray-700 dark:text-gray-300">
+            Now: {data.easternNow.dateKey}{' '}
+            {(() => {
+              const h = data.easternNow.hour;
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const h12 = h % 12 || 12;
+              return `${h12}:${String(data.easternNow.minute).padStart(2, '0')} ${ampm} ET`;
+            })()}
+          </span>
+        ) : null}
       </p>
 
       <section className="mt-8">
@@ -114,9 +127,7 @@ export function AnalyticsDashboard() {
               Server uptime
             </div>
             <div className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
-              {traffic?.serverStartedAt
-                ? new Date(traffic.serverStartedAt).toLocaleString()
-                : '—'}
+              {traffic?.serverStartedAt ? formatArticleDateTime(traffic.serverStartedAt) : '—'}
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
               {traffic?.displayLocation ?? 'Breaking news ticker'} · {traffic?.method ?? 'socket.io'}
@@ -263,6 +274,8 @@ export function AnalyticsDashboard() {
           </div>
         </section>
       ) : null}
+
+      <ViewsChart chartData={data?.viewsChart} />
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-bold text-gray-900 dark:text-white">Article analytics</h2>
