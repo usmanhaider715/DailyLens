@@ -3,8 +3,8 @@ import { logger } from '../utils/logger.js';
 import { parseJsonFromModelText } from '../lib/openrouter.js';
 
 const DEFAULT_BASE = 'https://api.bluesminds.com/v1';
-const DEFAULT_IDEA_MODEL = 'claude-haiku-4-5-20251001';
-const DEFAULT_WRITE_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_IDEA_MODEL = 'claude-sonnet';
+const DEFAULT_WRITE_MODEL = 'claude-sonnet';
 const FALLBACK_MODEL = process.env.BLUESMINDS_MODEL?.trim() || 'gpt-5.5';
 
 function authProfiles() {
