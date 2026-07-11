@@ -53,11 +53,29 @@ export function ArticleBody({ article, related }) {
             fetchPriority="high"
             loading="eager"
           />
-          {article.heroImage?.alt && !htmlArticle && (
+          {(article.contentType === 'evergreen' || article.isEvergreen) &&
+          (article.imageAttribution || article.heroImage?.credit) ? (
+            <figcaption className="mt-2 text-center text-xs text-gray-500">
+              {article.imageAttribution || article.heroImage.credit}
+              {article.heroImage?.creditUrl ? (
+                <>
+                  {' · '}
+                  <a
+                    href={article.heroImage.creditUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    Source
+                  </a>
+                </>
+              ) : null}
+            </figcaption>
+          ) : article.heroImage?.alt && !htmlArticle ? (
             <figcaption className="mt-2 text-center text-xs text-gray-500">
               {article.imageAttribution || article.heroImage.credit || article.heroImage.alt}
             </figcaption>
-          )}
+          ) : null}
         </figure>
 
         <h1 className="mt-8 font-display text-4xl font-bold leading-tight text-gray-900 dark:text-white md:text-[40px]">

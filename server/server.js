@@ -19,6 +19,7 @@ import { logger } from './utils/logger.js';
 import { verifyMailerConnection } from './lib/mailer.js';
 import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
 import { scheduleAutoShare } from './jobs/autoShareScheduler.js';
+import { scheduleEvergreenPipeline } from './jobs/evergreenScheduler.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
 import { startLiveScoresPoller } from './jobs/liveScoresPoller.js';
 
@@ -207,6 +208,7 @@ async function start() {
       logger.info('AI news fetcher disabled (DISABLE_AI_PIPELINE=true)');
     }
     scheduleAutoShare();
+    scheduleEvergreenPipeline();
     await pushTicker();
     setInterval(pushTicker, 5 * 60 * 1000);
     startLiveScoresPoller();

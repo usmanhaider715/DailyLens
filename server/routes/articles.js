@@ -3,6 +3,7 @@ import * as ac from '../controllers/articleController.js';
 
 const router = Router();
 
+router.get('/evergreen', ac.listEvergreenArticles);
 router.get('/forecasts', ac.getForecasts);
 router.get('/breaking', ac.getBreaking);
 router.get('/trending', ac.getTrending);

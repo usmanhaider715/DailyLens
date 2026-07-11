@@ -7,6 +7,7 @@ import { adminAiLimiter, batchPublishLimiter } from '../middleware/rateLimiter.j
 import { heroUploadMiddleware } from '../middleware/uploadHero.js';
 import * as autoShare from '../controllers/autoShareController.js';
 import * as ideaBatch from '../controllers/ideaBatchController.js';
+import * as evergreen from '../controllers/evergreenController.js';
 
 const router = Router();
 
@@ -58,6 +59,14 @@ router.get('/idea-batch/active-job', ideaBatch.getIdeaBatchActiveJob);
 router.get('/idea-batch/drafts', ideaBatch.getIdeaDrafts);
 router.post('/idea-batch/drafts/publish', ideaBatch.postBulkPublishDrafts);
 router.post('/idea-batch/drafts/delete', ideaBatch.postBulkDeleteDrafts);
+
+router.get('/evergreen', evergreen.getEvergreenSettings);
+router.put('/evergreen', evergreen.putEvergreenSettings);
+router.post('/evergreen/run', batchPublishLimiter, evergreen.postEvergreenRun);
+router.get('/evergreen/pending', evergreen.getEvergreenPending);
+router.post('/evergreen/pending/:id/approve', evergreen.postEvergreenApprove);
+router.post('/evergreen/pending/:id/reject', evergreen.postEvergreenReject);
+router.get('/evergreen/logs', evergreen.getEvergreenLogs);
 
 router.get('/ai/news-feed', adminAiLimiter, adminAi.getAiNewsFeed);
 router.get('/ai/search-hero-images', adminAiLimiter, adminAi.searchHeroImages);

@@ -1,7 +1,7 @@
 import { Article } from '../models/Article.js';
 import { ArticleRedirect } from '../models/ArticleRedirect.js';
 import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheService.js';
-import { publicArticleFilter } from '../utils/publicArticleFilter.js';
+import { publicArticleFilter, newsArticleFilter, evergreenPublicFilter } from '../utils/publicArticleFilter.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 import { recordArticleView } from '../services/viewStatsService.js';
 
@@ -48,7 +48,7 @@ export async function listArticles(req, res, next) {
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(enrichList(cached));
 
-    const filter = { ...publicArticleFilter };
+    const filter = req.query.evergreen === '1' ? { ...evergreenPublicFilter } : { ...newsArticleFilter };
     if (category && category !== 'All') {
       const map = { Tech: 'Technology' };
       filter.category = map[category] || category;
@@ -136,10 +136,29 @@ export async function getTrending(req, res, next) {
   }
 }
 
+export async function listEvergreenArticles(req, res, next) {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
+    const category = req.query.category;
+    const filter = { ...evergreenPublicFilter };
+    if (category && category !== 'All') filter.category = category;
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      Article.find(filter, listProjection).sort({ publishedAt: -1 }).skip(skip).limit(limit).lean(),
+      Article.countDocuments(filter),
+    ]);
+    res.json(enrichList({ items, page, limit, total, pages: Math.ceil(total / limit) }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function getFeatured(req, res, next) {
   try {
     const items = await Article.find(
-      { isFeatured: true, ...publicArticleFilter },
+      { isFeatured: true, ...newsArticleFilter },
       listProjection
     )
       .sort({ publishedAt: -1 })

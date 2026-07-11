@@ -7,6 +7,7 @@ import { Spinner } from '../common/Spinner.jsx';
 import { Plus, Trash2, Play, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { AutoShareRunProgress } from './AutoShareRunProgress.jsx';
 import { ContentIdeasPanel } from './ContentIdeasPanel.jsx';
+import { EvergreenPanel } from './EvergreenPanel.jsx';
 import { startAutoShareRun } from '@/utils/autoShareRun';
 
 function formatEtClock(parts) {
@@ -218,10 +219,23 @@ export function AutoSharePanel() {
         >
           Content ideas
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('evergreen')}
+          className={`rounded-md px-4 py-2 text-sm font-medium ${
+            tab === 'evergreen'
+              ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-white'
+              : 'text-gray-600 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          Evergreen guides
+        </button>
       </div>
 
       {tab === 'content-ideas' ? (
         <ContentIdeasPanel />
+      ) : tab === 'evergreen' ? (
+        <EvergreenPanel />
       ) : (
         <>
       <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">

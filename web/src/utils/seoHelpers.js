@@ -6,10 +6,12 @@ export function buildNewsArticleJsonLd({ article, canonical }) {
   const pageUrl = canonical?.startsWith('http') ? canonical : canonicalUrl(canonical || `/article/${article.slug}`);
   const summary = stripHtml(article.summary);
   const imageUrl = getArticleFeaturedImage(article) || absoluteUrl('/logo.png');
+  const isEvergreen = article.contentType === 'evergreen' || article.isEvergreen;
+  const schemaType = isEvergreen ? 'Article' : 'NewsArticle';
 
   return {
     '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
+    '@type': schemaType,
     headline: article.title,
     description: summary,
     image: [imageUrl],
@@ -37,6 +39,25 @@ export function buildNewsArticleJsonLd({ article, canonical }) {
     },
     isAccessibleForFree: true,
     inLanguage: article.language || 'en',
+  };
+}
+
+export function buildFaqPageJsonLd({ faq = [], canonical }) {
+  const items = (faq || []).filter((f) => f?.question && f?.answer);
+  if (!items.length) return null;
+  const pageUrl = canonical?.startsWith('http') ? canonical : canonicalUrl(canonical || '/');
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: stripHtml(f.answer),
+      },
+    })),
+    url: pageUrl,
   };
 }
 

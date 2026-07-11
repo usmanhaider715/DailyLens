@@ -65,6 +65,7 @@ ${[
   sitemapIndexEntry(`${site}/sitemap-articles.xml`, now),
   sitemapIndexEntry(`${site}/sitemap-categories.xml`, now),
   sitemapIndexEntry(`${site}/sitemap-news.xml`, now),
+  sitemapIndexEntry(`${site}/sitemap-evergreen.xml`, now),
 ].join('\n')}
 </sitemapindex>`;
 
@@ -82,6 +83,7 @@ export async function buildSitemapArticlesXml() {
   if (cached) return cached;
 
   const site = siteBase();
+  const now = new Date().toISOString();
   const articles = await Article.find(publicArticleFilter)
     .select('slug publishedAt updatedAt')
     .sort({ publishedAt: -1 })
@@ -93,9 +95,16 @@ export async function buildSitemapArticlesXml() {
     return urlEntry(`${site}/article/${a.slug}`, lastmod, 'weekly', '0.9');
   });
 
+  const evergreenStatic = [
+    urlEntry(`${site}/evergreen`, now, 'daily', '0.85'),
+    ...['Finance', 'Insurance', 'Legal', 'Technology', 'Health', 'Business', 'Entertainment'].map(
+      (cat) => urlEntry(`${site}/evergreen/category/${encodeURIComponent(cat)}`, now, 'weekly', '0.8'),
+    ),
+  ];
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${articleUrls.join('\n')}
+${[...evergreenStatic, ...articleUrls].join('\n')}
 </urlset>`;
 
   await cacheSet(CACHE_KEYS.articles, xml, SITEMAP_TTL);

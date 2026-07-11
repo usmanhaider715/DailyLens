@@ -13,6 +13,7 @@ const categoryLinks = [
   ['World', 'World'],
   ['Tech', 'Technology'],
   ['Business', 'Business'],
+  ['Guides', '/evergreen'],
   ['Health', 'Health'],
   ['Entertainment', 'Entertainment'],
   ['Gaming', 'Gaming'],
@@ -31,6 +32,7 @@ const sportsLinks = [
 ];
 
 function categoryHref(path) {
+  if (String(path).startsWith('/')) return path;
   return `/category/${encodeURIComponent(path)}`;
 }
 

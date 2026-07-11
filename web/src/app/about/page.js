@@ -46,10 +46,15 @@ export default function AboutPage() {
 
         <h2 className="mt-10 font-display text-2xl font-bold text-gray-900 dark:text-white">Contact</h2>
         <p className="mt-3 text-gray-600 dark:text-gray-300">
-          Editorial:{' '}
+          Use our{' '}
+          <a href="/contact" className="font-semibold text-primary-700 hover:underline">
+            contact form
+          </a>{' '}
+          or email{' '}
           <a href="mailto:editorial@dailylens.com" className="font-semibold text-primary-700 hover:underline">
             editorial@dailylens.com
           </a>
+          .
         </p>
       </article>
       <Footer />
