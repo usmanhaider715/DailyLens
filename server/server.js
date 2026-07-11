@@ -33,6 +33,7 @@ import liveRoutes from './routes/live.js';
 import siteRoutes from './routes/site.js';
 import imagesRoutes from './routes/images.js';
 import authorsRoutes from './routes/authors.js';
+import contactRoutes from './routes/contact.js';
 import { ensureDefaultAuthors } from './models/Author.js';
 import {
   buildSitemapIndexXml,
@@ -165,6 +166,7 @@ app.use('/api/live', liveRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/authors', authorsRoutes);
+app.use('/api/contact', contactRoutes);
 
 app.use(errorHandler);
 

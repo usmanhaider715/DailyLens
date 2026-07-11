@@ -105,3 +105,57 @@ export async function sendAdminLoginAlert({ email, ip, location, userAgent, last
     return false;
   }
 }
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export async function sendContactFormEmail({ name, email, subject, message }) {
+  const transport = getTransporter();
+  if (!transport) {
+    logger.warn('Contact form skipped — SMTP not configured');
+    return { ok: false, error: 'Email service is not configured.' };
+  }
+
+  const config = getSmtpConfig();
+  const to =
+    process.env.CONTACT_EMAIL?.trim() ||
+    process.env.ADMIN_ALERT_EMAIL?.trim() ||
+    config.user;
+  const fromName = process.env.SMTP_FROM_NAME?.trim() || 'The Daily Lens';
+  const from = `"${fromName}" <${config.user}>`;
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSubject = escapeHtml(subject);
+  const safeMessage = escapeHtml(message).replace(/\n/g, '<br />');
+
+  const html = `
+    <h2>New contact form message — The Daily Lens</h2>
+    <p><strong>Name:</strong> ${safeName}</p>
+    <p><strong>Email:</strong> <a href="mailto:${safeEmail}">${safeEmail}</a></p>
+    <p><strong>Subject:</strong> ${safeSubject}</p>
+    <hr />
+    <p><strong>Message:</strong></p>
+    <p style="white-space:pre-wrap;line-height:1.6">${safeMessage}</p>
+    <p style="color:#666;font-size:12px">Reply directly to ${safeEmail} to respond.</p>
+  `;
+
+  try {
+    await transport.sendMail({
+      from,
+      to,
+      replyTo: email,
+      subject: `[The Daily Lens] Contact: ${subject}`,
+      html,
+    });
+    logger.info(`Contact form email sent to ${to} from ${email}`);
+    return { ok: true };
+  } catch (err) {
+    logger.error('Failed to send contact form email', err.message);
+    return { ok: false, error: 'Could not send your message. Please try again later.' };
+  }
+}

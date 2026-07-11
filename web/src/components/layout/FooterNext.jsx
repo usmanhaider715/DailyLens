@@ -26,6 +26,7 @@ export function Footer() {
             <div className="font-semibold text-gray-900 dark:text-white">Company</div>
             <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
               <li><Link href="/about">About</Link></li>
+              <li><Link href="/contact">Contact us</Link></li>
               <li><Link href="/editorial-standards">Editorial standards</Link></li>
               <li><a href="/feed.xml">RSS Feed</a></li>
               <li><a href="/sitemap.xml">Sitemap</a></li>

@@ -54,3 +54,11 @@ export const imageProxyLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Image proxy rate limit reached.' },
 });
+
+export const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many contact form submissions. Please try again in an hour.' },
+});
