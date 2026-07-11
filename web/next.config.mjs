@@ -2,6 +2,8 @@
 const apiUrl = process.env.API_URL || 'http://localhost:5001';
 
 const nextConfig = {
+  /** Wait for generateMetadata before flushing HTML — keeps title/OG in initial <head> for crawlers. */
+  htmlLimitedBots: /.*/,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },

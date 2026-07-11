@@ -29,11 +29,26 @@ export function isBluesmindsRateLimitError(err) {
   return status === 429 || /rate limit|too many/i.test(bluesmindsErrorMessage(err));
 }
 
+const NETWORK_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EPIPE',
+  'ERR_NETWORK',
+]);
+
+export function isBluesmindsNetworkError(err) {
+  if (err?.code && NETWORK_ERROR_CODES.has(err.code)) return true;
+  return /ECONNRESET|socket hang up|network error/i.test(err?.message || '');
+}
+
 export function isBluesmindsRetryableError(err) {
   const status = err?.response?.status;
   return (
     isBluesmindsRateLimitError(err) ||
-    err?.code === 'ECONNABORTED' ||
+    isBluesmindsNetworkError(err) ||
     /timeout/i.test(err?.message || '') ||
     status === 502 ||
     status === 503 ||
@@ -44,6 +59,7 @@ export function isBluesmindsRetryableError(err) {
 export function shouldFallbackFromBluesminds(err) {
   const status = err?.response?.status;
   if (isBluesmindsRetryableError(err)) return true;
+  if (isBluesmindsNetworkError(err)) return true;
   if (status === 401 || status === 403 || status === 402) return true;
   if (/invalid token|no access to model/i.test(bluesmindsErrorMessage(err))) return true;
   return false;

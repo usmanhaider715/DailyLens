@@ -1,17 +1,25 @@
 import { generateSeoArticle } from './groqService.js';
 import { resolveHeroImage, buildHeroCaption } from './imageDiscoveryService.js';
 import { persistFeaturedImageIfRemote } from '../utils/persistHeroImage.js';
+import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
+import { logger } from '../utils/logger.js';
 
 export async function buildAiDraftResponse(raw, suggestedCategory) {
   const article = await generateSeoArticle(raw);
   const category = article.category || suggestedCategory || 'World';
 
-  const hero = await resolveHeroImage({
-    title: article.headline,
-    category,
-    primaryKeyword: article.primaryKeyword,
-    tags: article.tags,
-  });
+  let hero = null;
+  try {
+    hero = await resolveHeroImage({
+      title: article.headline,
+      category,
+      primaryKeyword: article.primaryKeyword,
+      tags: article.tags,
+    });
+  } catch (err) {
+    logger.warn('Licensed hero lookup failed — using AI fallback', err.message);
+  }
+
   const heroCaption = hero?.url ? buildHeroCaption(hero) : '';
 
   let featuredImage = hero?.url || '';
@@ -20,6 +28,22 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
       featuredImage = await persistFeaturedImageIfRemote(featuredImage, article.headline);
     } catch {
       /* use remote licensed URL */
+    }
+  }
+
+  if (!featuredImage) {
+    try {
+      featuredImage = await resolveFeaturedImageUrl(article.headline, category, article.headline);
+      hero = {
+        url: featuredImage,
+        credit: 'AI-generated image (Pollinations.ai)',
+        creditUrl: 'https://pollinations.ai/',
+        source: 'ai_generated',
+        license: 'AI-generated',
+        imageAttribution: 'AI-generated image (Pollinations.ai)',
+      };
+    } catch (err) {
+      logger.warn('AI hero fallback failed', err.message);
     }
   }
 

@@ -5,12 +5,12 @@ import { JsonLd } from '@/components/seo/JsonLd';
 import { buildNewsArticleJsonLd, buildBreadcrumbJsonLd } from '@/utils/seoHelpers';
 import { buildArticleMetadata } from '@/utils/articleMetadata';
 
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   try {
-    const data = await fetchApi(`/articles/${slug}`, { revalidate: 120 });
+    const data = await fetchApi(`/articles/${slug}`, { cache: 'no-store' });
     const article = data?.article;
     if (!article) return { title: 'Article not found' };
     return buildArticleMetadata(article, slug);
