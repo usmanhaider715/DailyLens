@@ -5,6 +5,7 @@ import { CloudRain, MapPin } from 'lucide-react';
 import { api } from '@/services/api';
 import { useVisitorLocation } from '@/context/VisitorLocationContext';
 import { Spinner } from '../common/Spinner.jsx';
+import { HourlyForecast } from './HourlyForecast';
 
 async function resolveAnalysisParams(weatherParams) {
   if (weatherParams) return weatherParams;
@@ -154,6 +155,10 @@ export function WeatherAnalysisPanel() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {analysis.hourlyByDay?.length > 0 && (
+              <HourlyForecast hourlyByDay={analysis.hourlyByDay} compact />
             )}
           </div>
         )}

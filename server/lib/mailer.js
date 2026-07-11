@@ -3,21 +3,59 @@ import { logger } from '../utils/logger.js';
 
 let transporter = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
+function normalizeAppPassword(raw) {
+  return String(raw || '').replace(/\s+/g, '').trim();
+}
+
+function getSmtpConfig() {
   const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_APP_PASSWORD?.trim();
+  const pass = normalizeAppPassword(process.env.SMTP_APP_PASSWORD);
   if (!user || !pass) return null;
 
+  const host = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const secure = process.env.SMTP_SECURE !== 'false';
+
+  return { user, pass, host, port, secure };
+}
+
+function getTransporter() {
+  if (transporter) return transporter;
+  const config = getSmtpConfig();
+  if (!config) return null;
+
   transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: { user: config.user, pass: config.pass },
   });
   return transporter;
 }
 
 export function isMailerConfigured() {
-  return !!(process.env.SMTP_USER?.trim() && process.env.SMTP_APP_PASSWORD?.trim());
+  return !!getSmtpConfig();
+}
+
+export async function verifyMailerConnection() {
+  const transport = getTransporter();
+  if (!transport) {
+    logger.warn('SMTP not configured — login alert emails disabled (set SMTP_USER + SMTP_APP_PASSWORD in server/.env)');
+    return false;
+  }
+
+  try {
+    await transport.verify();
+    logger.info(`SMTP ready (${process.env.SMTP_HOST || 'smtp.gmail.com'}) — login alerts will send to ${process.env.ADMIN_ALERT_EMAIL?.trim() || process.env.SMTP_USER?.trim()}`);
+    return true;
+  } catch (err) {
+    logger.error(
+      'SMTP verification failed — login alert emails will not send. Regenerate a Gmail App Password at https://myaccount.google.com/apppasswords and update SMTP_APP_PASSWORD in server/.env',
+      err.message,
+    );
+    transporter = null;
+    return false;
+  }
 }
 
 export async function sendAdminLoginAlert({ email, ip, location, userAgent, lastRunSummary }) {
@@ -27,9 +65,10 @@ export async function sendAdminLoginAlert({ email, ip, location, userAgent, last
     return false;
   }
 
-  const to = process.env.ADMIN_ALERT_EMAIL?.trim() || process.env.SMTP_USER?.trim();
+  const config = getSmtpConfig();
+  const to = process.env.ADMIN_ALERT_EMAIL?.trim() || config.user;
   const fromName = process.env.SMTP_FROM_NAME?.trim() || 'The Daily Lens';
-  const from = `"${fromName}" <${process.env.SMTP_USER?.trim()}>`;
+  const from = `"${fromName}" <${config.user}>`;
 
   const html = `
     <h2>Admin login — The Daily Lens</h2>
@@ -51,9 +90,18 @@ export async function sendAdminLoginAlert({ email, ip, location, userAgent, last
       subject: `[The Daily Lens] Admin login from ${ip || 'unknown IP'}`,
       html,
     });
+    logger.info(`Login alert email sent to ${to}`);
     return true;
   } catch (err) {
-    logger.error('Failed to send login alert email', err);
+    if (err.code === 'EAUTH') {
+      logger.error(
+        'Failed to send login alert — Gmail rejected SMTP credentials (535). Generate a new App Password and update SMTP_APP_PASSWORD in server/.env',
+        err.message,
+      );
+      transporter = null;
+    } else {
+      logger.error('Failed to send login alert email', err.message);
+    }
     return false;
   }
 }

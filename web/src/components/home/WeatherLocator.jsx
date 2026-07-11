@@ -6,6 +6,7 @@ import { api } from '@/services/api';
 import { useVisitorLocation } from '@/context/VisitorLocationContext';
 import { inferUkRegionIdFromCityComposite } from '@/utils/weatherRegionUtils';
 import { useWeatherCountryDetail } from '@/hooks/useWeatherCountryDetail';
+import { HourlyForecast } from '@/components/weather/HourlyForecast';
 
 export function WeatherLocator({ compact = false }) {
   const { weatherParams, setManualRegion, openPrompt, location: savedLoc, ready: locReady } = useVisitorLocation();
@@ -311,6 +312,10 @@ export function WeatherLocator({ compact = false }) {
             </div>
           ))}
         </div>
+      )}
+
+      {f?.hourlyByDay?.length > 0 && (
+        <HourlyForecast hourlyByDay={f.hourlyByDay} compact />
       )}
 
       <p className="mt-3 text-[10px] text-gray-400">

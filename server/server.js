@@ -16,6 +16,7 @@ import { validateProductionEnv } from './utils/envValidate.js';
 import { Article } from './models/Article.js';
 import { publicArticleFilter } from './utils/publicArticleFilter.js';
 import { logger } from './utils/logger.js';
+import { verifyMailerConnection } from './lib/mailer.js';
 import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
 import { scheduleAutoShare } from './jobs/autoShareScheduler.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
@@ -196,6 +197,7 @@ async function start() {
     await connectDB(process.env.MONGODB_URI);
     await ensureDefaultAuthors();
     getRedis();
+    await verifyMailerConnection();
     if (process.env.DISABLE_AI_PIPELINE !== 'true') {
       scheduleNewsFetcher();
       logger.info('AI news fetcher cron enabled');

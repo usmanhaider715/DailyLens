@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HourlyForecast } from './HourlyForecast';
 
 export function WeatherAnalysisDisplay({ analysis, country, slug }) {
   if (!analysis) {
@@ -81,6 +82,10 @@ export function WeatherAnalysisDisplay({ analysis, country, slug }) {
           </tbody>
         </table>
       </div>
+
+      {analysis.hourlyByDay?.length > 0 && (
+        <HourlyForecast hourlyByDay={analysis.hourlyByDay} />
+      )}
 
       <div className="prose prose-lg mt-8 max-w-none dark:prose-invert">
         <h2 className="font-display text-xl font-bold">Easy-to-understand outlook</h2>

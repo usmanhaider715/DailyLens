@@ -6,6 +6,27 @@ import { getClientIp, lookupIpLocation } from '../lib/ipGeo.js';
 import { buildLastRunSummary } from '../lib/lastRunSummary.js';
 import { logger } from '../utils/logger.js';
 
+async function notifyAdminLogin({ user, ip, userAgent }) {
+  try {
+    const location = await lookupIpLocation(ip);
+    let lastRunSummary = 'No recent runs recorded';
+    try {
+      lastRunSummary = await buildLastRunSummary();
+    } catch (err) {
+      logger.warn('Last run summary failed for login alert', err.message);
+    }
+    await sendAdminLoginAlert({
+      email: user.email,
+      ip,
+      location,
+      userAgent,
+      lastRunSummary,
+    });
+  } catch (err) {
+    logger.warn('Login alert failed', err.message);
+  }
+}
+
 export async function login(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -22,18 +43,9 @@ export async function login(req, res, next) {
 
     const ip = getClientIp(req);
     const userAgent = req.headers['user-agent'] || '';
-    lookupIpLocation(ip)
-      .then(async (location) => {
-        const lastRunSummary = await buildLastRunSummary();
-        return sendAdminLoginAlert({
-          email: user.email,
-          ip,
-          location,
-          userAgent,
-          lastRunSummary,
-        });
-      })
-      .catch((err) => logger.warn('Login alert failed', err.message));
+    if (['admin', 'editor'].includes(user.role)) {
+      void notifyAdminLogin({ user, ip, userAgent });
+    }
 
     res.json({ token, user: { email: user.email, role: user.role } });
   } catch (e) {

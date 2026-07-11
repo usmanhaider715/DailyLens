@@ -23,7 +23,7 @@ function rainOutlook(pct) {
   return 'Low';
 }
 
-function buildBulletPoints(locationName, today, fiveDay) {
+function buildBulletPoints(locationName, today, fiveDay, hourlyByDay = []) {
   const bullets = [];
   bullets.push(
     `${locationName}: ${today.condition} with highs near ${today.high}°C and lows around ${today.low}°C.`,
@@ -31,7 +31,13 @@ function buildBulletPoints(locationName, today, fiveDay) {
   if (today.tempNow != null) {
     bullets.push(`Right now ${today.tempNow}°C (feels like ${today.feelsLike}°C).`);
   }
-  if (today.rainChance != null) {
+
+  const todayHours = hourlyByDay[0]?.hours || [];
+  const rainyHours = todayHours.filter((h) => (h.precipChance ?? 0) >= 50 && !h.isPast);
+  if (rainyHours.length > 0) {
+    const times = rainyHours.map((h) => h.hourLabel).join(', ');
+    bullets.push(`Rain most likely today around ${times}.`);
+  } else if (today.rainChance != null) {
     bullets.push(
       today.rainChance >= 50
         ? `Rain is likely today (${today.rainChance}% chance).`
@@ -113,6 +119,7 @@ export function buildAnalysisFromForecast(weatherPayload) {
   const name = loc?.name || fc.name || 'Selected location';
   const daily = fc.daily || [];
   const current = fc.current || {};
+  const hourlyByDay = fc.hourlyByDay || [];
 
   const todayRow = daily[0] || {};
   const today = {
@@ -153,13 +160,14 @@ export function buildAnalysisFromForecast(weatherPayload) {
     fiveDay,
   };
 
-  const bullets = buildBulletPoints(name, today, fiveDay);
+  const bullets = buildBulletPoints(name, today, fiveDay, hourlyByDay);
 
   return {
     location: loc,
     locationName: name,
     today,
     fiveDay,
+    hourlyByDay,
     table,
     bullets,
     narrative: bullets.join(' '),
@@ -181,7 +189,7 @@ export async function getWeatherAnalysis(query = {}) {
     return { error: 'Location not found' };
   }
 
-  const cacheKey = `weather:analysis:v2:${point.country}:${point.id}`;
+  const cacheKey = `weather:analysis:v3:${point.country}:${point.id}`;
   const cached = await cacheGet(cacheKey);
   if (cached && query.refresh !== '1') return cached;
 
@@ -198,6 +206,7 @@ export async function getWeatherAnalysis(query = {}) {
   const aiBullets = await groqPolishNarrative(analysis.locationName, {
     today: analysis.today,
     fiveDay: analysis.fiveDay,
+    hourlyByDay: analysis.hourlyByDay,
   });
   if (aiBullets?.length) {
     analysis.bullets = aiBullets;
