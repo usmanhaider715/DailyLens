@@ -46,11 +46,9 @@ async function main() {
 
   for (const [base, dupes] of groups.entries()) {
     const canonical = bySlug.get(base);
-    const all = [canonical, ...dupes].sort(
-      (a, b) => new Date(a.publishedAt || a.createdAt) - new Date(b.publishedAt || b.createdAt),
-    );
-    const keeper = all[0];
-    const toRemove = all.slice(1);
+    // Always keep the base slug (no -N suffix) as the canonical URL for SEO.
+    const keeper = canonical;
+    const toRemove = dupes.filter((d) => d.slug !== base);
 
     console.log(`\nGroup "${base}": keeping ${keeper.slug}, removing ${toRemove.length}`);
 
