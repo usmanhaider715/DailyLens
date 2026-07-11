@@ -72,7 +72,7 @@ Return ONLY a JSON object with key "ideas" containing an array, no preamble:
 {"ideas":[{"title":"","target_keyword":"","search_intent":"informational|commercial|transactional","one_line_angle":"","slug":""}]}`;
 
   const { content, usage, costUsd, model } = await evergreenClaudeChat({
-    model: config.ideaModel,
+    purpose: 'idea',
     maxTokens: 2000,
     temperature: 0.5,
     messages: [{ role: 'user', content: prompt }],
@@ -90,7 +90,7 @@ async function requestReplacementIdea(category, existingRows, rejectedTitle) {
 Propose ONE replacement evergreen self-help/how-to topic. Return JSON: {"ideas":[{"title":"","target_keyword":"","search_intent":"informational|commercial|transactional","one_line_angle":"","slug":""}]}`;
 
   const { content, usage, costUsd, model } = await evergreenClaudeChat({
-    model: config.ideaModel,
+    purpose: 'idea',
     maxTokens: 800,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -156,7 +156,7 @@ Return ONLY JSON:
 {"headline":"","meta_description":"","body_html":"","faq":[{"question":"","answer":""}],"suggested_image_keywords":["","",""],"tags":["","","","",""]}`;
 
   const { content, usage, costUsd, model } = await evergreenClaudeChat({
-    model: config.writeModel,
+    purpose: 'write',
     maxTokens: 8000,
     temperature: 0.45,
     messages: [{ role: 'user', content: prompt }],
