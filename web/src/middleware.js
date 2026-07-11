@@ -7,6 +7,12 @@ export function middleware(request) {
   if (match?.to) {
     const url = request.nextUrl.clone();
     url.pathname = match.to;
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    if (host) {
+      url.host = host.split(',')[0].trim();
+      url.protocol = `${proto}:`;
+    }
     return NextResponse.redirect(url, match.status || 301);
   }
   return NextResponse.next();
