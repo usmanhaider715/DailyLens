@@ -13,6 +13,9 @@ echo "==> Install API dependencies"
 cd server
 npm ci --omit=dev 2>/dev/null || npm install --production
 
+echo "==> Ensure Google Trends USA auto-share source"
+node scripts/add-google-trends-source.js || echo "  (skipped — could not reach DB)"
+
 echo "==> Install & build frontend"
 cd ../web
 npm ci 2>/dev/null || npm install
