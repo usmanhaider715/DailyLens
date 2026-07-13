@@ -8,6 +8,7 @@ import { heroUploadMiddleware } from '../middleware/uploadHero.js';
 import * as autoShare from '../controllers/autoShareController.js';
 import * as ideaBatch from '../controllers/ideaBatchController.js';
 import * as evergreen from '../controllers/evergreenController.js';
+import * as seo from '../controllers/seoIntelligenceController.js';
 
 const router = Router();
 
@@ -71,6 +72,24 @@ router.get('/evergreen/pending', evergreen.getEvergreenPending);
 router.post('/evergreen/pending/:id/approve', evergreen.postEvergreenApprove);
 router.post('/evergreen/pending/:id/reject', evergreen.postEvergreenReject);
 router.get('/evergreen/logs', evergreen.getEvergreenLogs);
+
+// SEO Intelligence Center (additive layer over the evergreen pipeline)
+router.get('/seo/config', seo.getConfig);
+router.put('/seo/config', seo.putConfig);
+router.get('/seo/categories', seo.getCategories);
+router.get('/seo/clusters', seo.getClusters);
+router.get('/seo/clusters/:slug', seo.getCluster);
+router.get('/seo/keywords', seo.getKeywords);
+router.get('/seo/content-audit', seo.getAudit);
+router.get('/seo/refresh', seo.getRefresh);
+router.get('/seo/internal-links/:slug', seo.getInternalLinks);
+router.get('/seo/analytics', seo.getAnalytics);
+router.get('/seo/search-console', seo.getSearchConsole);
+router.get('/seo/competitors', seo.getCompetitors);
+router.put('/seo/competitors', seo.putCompetitors);
+router.post('/seo/plan', adminAiLimiter, seo.postPlan);
+router.get('/seo/logs', seo.getLogs);
+router.post('/seo/manual-generate', batchPublishLimiter, seo.postManualGenerate);
 
 router.get('/ai/news-feed', adminAiLimiter, adminAi.getAiNewsFeed);
 router.get('/ai/search-hero-images', adminAiLimiter, adminAi.searchHeroImages);

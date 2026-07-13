@@ -17,12 +17,14 @@ import {
   X,
   Share2,
   HeartPulse,
+  Brain,
 } from 'lucide-react';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/homepage', label: 'Homepage', icon: Home },
   { href: '/admin/auto-share', label: 'Auto-share', icon: Share2 },
+  { href: '/admin/seo', label: 'SEO Intelligence', icon: Brain },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/articles/new', label: 'Write article', icon: FileText },
   { href: '/admin/content-health', label: 'Content Health', icon: HeartPulse },
