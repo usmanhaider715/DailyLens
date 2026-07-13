@@ -299,14 +299,14 @@ async function generateWithClod(rawArticle, userPrompt, compactPrompt) {
   throw lastErr || new Error('Clod.io SEO article generation failed');
 }
 
-function resolveFallbackAfterOpenRouter() {
+function resolveFallbackAfterBluesminds() {
+  if (isOpenRouterConfigured()) return 'openrouter';
   if (isClodConfigured()) return 'clod';
-  if (isBluesmindsConfigured()) return 'bluesminds';
   return 'groq';
 }
 
-function resolveFallbackAfterClod() {
-  if (isBluesmindsConfigured()) return 'bluesminds';
+function resolveFallbackAfterOpenRouter() {
+  if (isClodConfigured()) return 'clod';
   return 'groq';
 }
 
@@ -364,6 +364,27 @@ async function generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt) 
 }
 
 async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt, bluesmindsPrompt) {
+  if (isBluesmindsConfigured()) {
+    try {
+      return await generateWithBluesminds(rawArticle, bluesmindsPrompt, compactPrompt);
+    } catch (err) {
+      if (shouldFallbackFromBluesminds(err) || isOpenRouterContentError(err)) {
+        const nextProvider = resolveFallbackAfterBluesminds();
+        logger.warn(`Bluesminds failed — falling back to ${nextProvider}`, bluesmindsErrorMessage(err));
+        await logAiFallback({
+          primaryProvider: 'bluesminds',
+          fallbackProvider: nextProvider,
+          reason: 'bluesminds_failure',
+          errorMessage: bluesmindsErrorMessage(err),
+          articleTitle: rawArticle.title,
+          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
   if (isOpenRouterConfigured()) {
     try {
       return await generateWithOpenRouter(rawArticle, userPrompt, compactPrompt);
@@ -386,33 +407,12 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
       return await generateWithClod(rawArticle, userPrompt, compactPrompt);
     } catch (err) {
       if (shouldFallbackFromClod(err) || isOpenRouterContentError(err)) {
-        const nextProvider = resolveFallbackAfterClod();
-        logger.warn(`Clod.io failed — falling back to ${nextProvider}`, clodErrorMessage(err));
+        logger.warn('Clod.io failed — falling back to Groq', clodErrorMessage(err));
         await logAiFallback({
           primaryProvider: 'clod',
-          fallbackProvider: nextProvider,
+          fallbackProvider: 'groq',
           reason: 'clod_failure',
           errorMessage: clodErrorMessage(err),
-          articleTitle: rawArticle.title,
-          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
-        });
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  if (isBluesmindsConfigured()) {
-    try {
-      return await generateWithBluesminds(rawArticle, bluesmindsPrompt, compactPrompt);
-    } catch (err) {
-      if (shouldFallbackFromBluesminds(err)) {
-        logger.warn('Bluesminds failed — falling back to Groq', bluesmindsErrorMessage(err));
-        await logAiFallback({
-          primaryProvider: 'bluesminds',
-          fallbackProvider: 'groq',
-          reason: 'bluesminds_failure',
-          errorMessage: bluesmindsErrorMessage(err),
           articleTitle: rawArticle.title,
           sourceUrl: rawArticle.url || rawArticle.sourceUrl,
         });

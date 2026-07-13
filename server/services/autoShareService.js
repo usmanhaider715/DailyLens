@@ -405,7 +405,7 @@ function createRunJob(period, meta) {
     currentPhase: 'starting',
     currentTitle: null,
     currentModel: null,
-    configuredModel: process.env.OPENROUTER_MODEL?.trim() || process.env.BLUESMINDS_MODEL?.trim() || 'gpt-5.5',
+    configuredModel: process.env.BLUESMINDS_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || 'gpt-5.4',
     waitingSeconds: 0,
     rateLimited: false,
     categoryBreakdown: [],

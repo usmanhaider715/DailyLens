@@ -203,7 +203,7 @@ function createRunJob(ideas, category) {
     currentPhase: 'starting',
     currentTitle: null,
     currentModel: null,
-    configuredModel: process.env.OPENROUTER_MODEL?.trim() || process.env.BLUESMINDS_MODEL?.trim() || process.env.GROQ_MODEL?.trim() || 'AI',
+    configuredModel: process.env.BLUESMINDS_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || process.env.GROQ_MODEL?.trim() || 'gpt-5.4',
     waitingSeconds: 0,
     rateLimited: false,
     errorMessages: [],

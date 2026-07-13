@@ -2,8 +2,8 @@ import axios from 'axios';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_BASE = 'https://api.bluesminds.com/v1';
-const DEFAULT_MODEL = 'gpt-5.5';
-const DEFAULT_TIMEOUT_MS = 90000;
+const DEFAULT_MODEL = 'gpt-5.4';
+const DEFAULT_TIMEOUT_MS = 120000;
 
 export function getBluesmindsConfig() {
   const apiKey = process.env.BLUESMINDS_API_KEY?.trim();

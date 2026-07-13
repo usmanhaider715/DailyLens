@@ -14,7 +14,7 @@ const BLUESMINDS_BASE = 'https://api.bluesminds.com/v1';
 const GROQ_BASE = 'https://api.groq.com/openai/v1';
 const DEFAULT_OPENROUTER_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 const DEFAULT_CLOD_MODEL = 'Llama 3.1 8B';
-const DEFAULT_BLUESMINDS_MODEL = 'gpt-5.5';
+const DEFAULT_BLUESMINDS_MODEL = 'gpt-5.4';
 const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile';
 
 function resolvePrimaryModel() {
@@ -39,6 +39,16 @@ function buildProfiles() {
 
   const { apiKey: orKey, siteUrl, appName } = getOpenRouterConfig();
 
+  const bluesKey = process.env.BLUESMINDS_API_KEY?.trim();
+  if (bluesKey) {
+    profiles.push({
+      apiKey: bluesKey,
+      baseUrl: (process.env.BLUESMINDS_BASE_URL?.trim() || BLUESMINDS_BASE).replace(/\/$/, ''),
+      model: process.env.BLUESMINDS_MODEL?.trim() || DEFAULT_BLUESMINDS_MODEL,
+      label: `bluesminds/${process.env.BLUESMINDS_MODEL?.trim() || DEFAULT_BLUESMINDS_MODEL}`,
+    });
+  }
+
   if (orKey) {
     profiles.push({
       apiKey: orKey,
@@ -60,16 +70,6 @@ function buildProfiles() {
       baseUrl: (process.env.CLOD_BASE_URL?.trim() || CLOD_BASE).replace(/\/$/, ''),
       model: clodModel,
       label: `clod/${clodModel}`,
-    });
-  }
-
-  const bluesKey = process.env.BLUESMINDS_API_KEY?.trim();
-  if (bluesKey) {
-    profiles.push({
-      apiKey: bluesKey,
-      baseUrl: (process.env.BLUESMINDS_BASE_URL?.trim() || BLUESMINDS_BASE).replace(/\/$/, ''),
-      model: process.env.BLUESMINDS_MODEL?.trim() || DEFAULT_BLUESMINDS_MODEL,
-      label: process.env.BLUESMINDS_MODEL?.trim() || DEFAULT_BLUESMINDS_MODEL,
     });
   }
 
