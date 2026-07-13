@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Share2,
+  HeartPulse,
 } from 'lucide-react';
 
 const links = [
@@ -24,6 +25,7 @@ const links = [
   { href: '/admin/auto-share', label: 'Auto-share', icon: Share2 },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/articles/new', label: 'Write article', icon: FileText },
+  { href: '/admin/content-health', label: 'Content Health', icon: HeartPulse },
   { href: '/admin/breaking', label: 'Breaking News', icon: Megaphone },
   { href: '/admin/ads', label: 'Ad Manager', icon: ImageIcon },
   { href: '/admin/trends', label: 'Google News', icon: TrendingUp },
