@@ -48,6 +48,7 @@ const listProjection = {
   isPublished: 1,
   isPaused: 1,
   views: 1,
+  trendScore: 1,
   publishedAt: 1,
   forecast: 1,
 };
@@ -171,16 +172,36 @@ export async function listEvergreenArticles(req, res, next) {
   }
 }
 
+/**
+ * Homepage featured list. The FIRST item is the hero, chosen by priority:
+ *   1. Manually flagged `isFeatured` (editor override always wins)
+ *   2. Highest Google Trends source popularity (`trendScore`) among recent news
+ *   3. Most recent news article (safe fallback when trends don't match)
+ * News-only (evergreen guides are excluded).
+ */
 export async function getFeatured(req, res, next) {
   try {
+    const ck = cacheKeys().featured;
+    const cached = await cacheGet(ck);
+    if (cached) return res.json(cached);
+
+    // Recent pool for trend/recency ranking, plus any manually featured article
+    // regardless of age so an editor pick is never dropped.
+    const recentSince = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     const items = await Article.find(
-      { isFeatured: true, ...newsArticleFilter },
-      listProjection
+      {
+        ...newsArticleFilter,
+        $or: [{ isFeatured: true }, { publishedAt: { $gte: recentSince } }],
+      },
+      listProjection,
     )
-      .sort({ publishedAt: -1 })
+      .sort({ isFeatured: -1, trendScore: -1, publishedAt: -1 })
       .limit(5)
       .lean();
-    res.json(items.map(enrichArticleHero));
+
+    const enriched = items.map(enrichArticleHero);
+    await cacheSet(ck, enriched, 120);
+    res.json(enriched);
   } catch (e) {
     next(e);
   }
@@ -287,5 +308,6 @@ export async function invalidateArticleCaches() {
   if (slugKeys.length) await redis.del(...slugKeys);
   await cacheDel(cacheKeys().breaking);
   await cacheDel(cacheKeys().trending);
+  await cacheDel(cacheKeys().featured);
   await invalidateSitemapCache();
 }

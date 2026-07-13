@@ -8,6 +8,11 @@ import { buildArticlePayload, ensureUniqueSlug } from '../utils/articleHelpers.j
 import { slugify } from '../utils/slugify.js';
 import { checkDuplicateBeforeInsert, attachNormalizedSourceUrl } from '../services/duplicateArticleService.js';
 import { fetchLatestNewsFeedForAdmin, RSS_FEEDS } from '../services/newsService.js';
+import {
+  fetchGoogleTrendsFeedItems,
+  GOOGLE_TRENDS_US_SOURCE_NAME,
+  GOOGLE_TRENDS_US_SOURCE_KEY,
+} from '../services/googleTrendsService.js';
 import { invalidateArticleCaches } from '../controllers/articleController.js';
 import { getEasternDateParts, formatEasternTime } from '../utils/usEasternTime.js';
 import { logger } from '../utils/logger.js';
@@ -140,6 +145,16 @@ function feedSourceMatches(selectedNames, feedSourceName) {
   return expandSourceNames(selectedNames).some((n) => namesMatch(n, feedSourceName));
 }
 
+/** Is the Google Trends USA pseudo-source selected? Detected by its stable
+ * routing key (`url`) or its canonical name. */
+function hasGoogleTrendsUs(sources) {
+  return (sources || []).some(
+    (s) =>
+      s?.url === GOOGLE_TRENDS_US_SOURCE_KEY ||
+      String(s?.name || '').toLowerCase().trim() === GOOGLE_TRENDS_US_SOURCE_NAME.toLowerCase(),
+  );
+}
+
 async function resolveSources(sourceIds) {
   let ids = sourceIds || [];
   if (!ids.length) {
@@ -170,17 +185,43 @@ async function findTopExistingArticles(sourceNames, category, limit, excludeIds 
     .lean();
 }
 
-async function fetchHotFeedItems(sourceNames, category, limit) {
-  const feed = await fetchLatestNewsFeedForAdmin(Math.max(limit * 4, 24), { category });
-  const items = (feed.items || []).filter((item) => {
-    const sourceMatch = feedSourceMatches(sourceNames, item.sourceName);
-    const catMatch = !item.suggestedCategory || item.suggestedCategory === category;
-    return sourceMatch && catMatch;
-  });
+async function fetchHotFeedItems(sourceNames, category, limit, sources = []) {
+  const candidates = [];
+
+  // Google Trends USA — write articles on whatever is trending in the US right
+  // now (hottest first). These are added ahead of RSS items so trending topics
+  // take priority when this source is selected.
+  if (hasGoogleTrendsUs(sources)) {
+    try {
+      const trendItems = await fetchGoogleTrendsFeedItems({
+        region: 'us',
+        category,
+        limit: Math.max(limit * 2, 8),
+      });
+      candidates.push(...trendItems);
+    } catch (err) {
+      logger.warn(`Auto-share Google Trends USA fetch failed (${category}): ${err.message}`);
+    }
+  }
+
+  // RSS / aggregator feed items for the other selected sources. Exclude the
+  // trends pseudo-source name here so its first-word ("google") match doesn't
+  // accidentally pull in every "Google *" RSS feed.
+  const rssNames = sourceNames.filter(
+    (n) => String(n).toLowerCase().trim() !== GOOGLE_TRENDS_US_SOURCE_NAME.toLowerCase(),
+  );
+  if (rssNames.length) {
+    const feed = await fetchLatestNewsFeedForAdmin(Math.max(limit * 4, 24), { category });
+    for (const item of feed.items || []) {
+      const sourceMatch = feedSourceMatches(rssNames, item.sourceName);
+      const catMatch = !item.suggestedCategory || item.suggestedCategory === category;
+      if (sourceMatch && catMatch) candidates.push(item);
+    }
+  }
 
   const seen = new Set();
   const out = [];
-  for (const item of items) {
+  for (const item of candidates) {
     const key = item.url || item.title;
     if (!key || seen.has(key)) continue;
     const dup = await checkDuplicateBeforeInsert({
@@ -512,7 +553,7 @@ export async function runAutoSharePeriod(period, { triggeredBy = 'schedule', job
       }
 
       if (remaining > 0) {
-        const feedItems = await fetchHotFeedItems(sourceNames, category, remaining);
+        const feedItems = await fetchHotFeedItems(sourceNames, category, remaining, sources);
         for (const item of feedItems) {
           assertNotStopped(job);
           await waitWhilePaused(job);

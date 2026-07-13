@@ -150,6 +150,17 @@ async function seed() {
     { name: 'GNews', type: 'api', url: 'gnews', category: 'world', isActive: false },
     { upsert: true }
   );
+  await NewsSource.findOneAndUpdate(
+    { url: 'google-trends-us' },
+    {
+      name: 'Google Trends USA',
+      type: 'api',
+      url: 'google-trends-us',
+      category: 'World',
+      isActive: true,
+    },
+    { upsert: true }
+  );
 
   await SiteSettings.findOneAndUpdate(
     { key: 'default' },

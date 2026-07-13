@@ -21,6 +21,7 @@ import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
 import { scheduleAutoShare } from './jobs/autoShareScheduler.js';
 import { scheduleEvergreenPipeline } from './jobs/evergreenScheduler.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
+import { scheduleTrendScoreUpdater, updateArticleTrendScores } from './jobs/trendScoreUpdater.js';
 import { startLiveScoresPoller } from './jobs/liveScoresPoller.js';
 
 import articlesRoutes from './routes/articles.js';
@@ -222,10 +223,13 @@ async function start() {
     }
     scheduleAutoShare();
     scheduleEvergreenPipeline();
+    scheduleTrendScoreUpdater();
     await pushTicker();
     setInterval(pushTicker, 5 * 60 * 1000);
     startLiveScoresPoller();
     await updateTrendingCache();
+    // Seed hero source-popularity scores on boot (best-effort, non-blocking).
+    updateArticleTrendScores().catch(() => {});
     setInterval(broadcastLiveCount, 30000);
     server.listen(PORT, '0.0.0.0', () => logger.info(`Server listening on ${PORT}`));
   } catch (e) {

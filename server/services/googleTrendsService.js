@@ -174,3 +174,65 @@ export function buildRawArticleFromTrend(trend, region) {
     suggestedCategory: inferCategoryFromQuery(trend.query),
   };
 }
+
+/** Canonical display/source name for the Google Trends USA auto-share source. */
+export const GOOGLE_TRENDS_US_SOURCE_NAME = 'Google Trends USA';
+/** Stable routing key stored on the NewsSource document (`url` field). */
+export const GOOGLE_TRENDS_US_SOURCE_KEY = 'google-trends-us';
+
+/** Approx traffic like "50K+" / "1M+" → number, for hotness ordering. */
+function parseApproxTraffic(str) {
+  if (!str) return 0;
+  const m = String(str).replace(/,/g, '').match(/([\d.]+)\s*([KMB]?)/i);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  const unit = (m[2] || '').toUpperCase();
+  const mult = unit === 'B' ? 1e9 : unit === 'M' ? 1e6 : unit === 'K' ? 1e3 : 1;
+  return Math.round(n * mult);
+}
+
+/**
+ * Top trending topics in a region as auto-share-compatible feed items.
+ * Ordered by search interest (hottest first) so auto-share writes articles on
+ * whatever is trending right now. Each item carries a canonical `sourceName`
+ * so the auto-share source filter and stored `Article.source.name` stay
+ * consistent. Optionally filtered to a single category.
+ */
+export async function fetchGoogleTrendsFeedItems({ region = 'us', category = null, limit = 20 } = {}) {
+  let trends = [];
+  try {
+    const data = await listGoogleTrends(region);
+    if (region === 'uk') trends = data.uk || [];
+    else if (region === 'both') trends = [...(data.us || []), ...(data.uk || [])];
+    else trends = data.us || [];
+  } catch (err) {
+    logger.warn('Google Trends feed items fetch failed:', err.message);
+    return [];
+  }
+
+  const ranked = trends
+    .map((t) => ({ trend: t, score: parseApproxTraffic(t.traffic) }))
+    .sort((a, b) => b.score - a.score);
+
+  const items = [];
+  for (const { trend } of ranked) {
+    const raw = buildRawArticleFromTrend(trend, trend.region || region);
+    if (category && raw.suggestedCategory !== category) continue;
+    // Guarantee a unique URL per trend so duplicate-detection doesn't collapse
+    // several trends that all fall back to the generic Trends RSS URL.
+    const url = trend.topUrl || `https://trends.google.com/trending?geo=US#${trend.id}`;
+    items.push({
+      title: raw.title,
+      description: raw.description,
+      content: raw.content,
+      url,
+      imageUrl: raw.imageUrl,
+      sourceName: GOOGLE_TRENDS_US_SOURCE_NAME,
+      sourceUrl: raw.sourceUrl || url,
+      publishedAt: raw.publishedAt,
+      suggestedCategory: raw.suggestedCategory,
+    });
+    if (items.length >= limit) break;
+  }
+  return items;
+}

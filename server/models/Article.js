@@ -108,6 +108,11 @@ const articleSchema = new mongoose.Schema(
     /** Evergreen articles live in a separate admin section and cannot be bulk-deleted */
     isEvergreen: { type: Boolean, default: false, index: true },
     views: { type: Number, default: 0 },
+    /** Source popularity from Google Trends (approx searches of the hottest
+     * matching trend). Refreshed on a cron; drives the homepage hero. */
+    trendScore: { type: Number, default: 0, index: true },
+    trendMatchedQuery: { type: String, default: '' },
+    trendUpdatedAt: { type: Date },
     publishedAt: { type: Date, default: Date.now, index: true },
     /** Set when auto-share features or publishes — excluded from future auto-share runs */
     lastAutoSharedAt: { type: Date, index: true },

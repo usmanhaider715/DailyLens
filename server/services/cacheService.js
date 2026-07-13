@@ -32,6 +32,7 @@ export function cacheKeys() {
     articleList: (q) => `articles:list:${JSON.stringify(q)}`,
     breaking: 'articles:breaking',
     trending: 'articles:trending',
+    featured: 'articles:featured',
     articleBySlug: (slug) => `articles:slug:${slug}`,
   };
 }
