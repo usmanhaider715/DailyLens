@@ -78,20 +78,42 @@ function estimateReadMinutes(body) {
   return Math.max(1, Math.ceil(words / 238));
 }
 
-/** Coerce AI readTime strings like "2 min read" / "3 minutes" into a minute count. */
-export function parseReadTimeMinutes(value, bodyFallback = '') {
+function parseNumericReadTime(value) {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return Math.max(1, Math.round(value));
+    return Math.round(value);
   }
   const raw = String(value || '').trim().toLowerCase();
-  if (raw) {
-    const match = raw.match(/(\d+(?:\.\d+)?)/);
-    if (match) {
-      const n = Number(match[1]);
-      if (Number.isFinite(n) && n > 0) return Math.max(1, Math.round(n));
+  if (!raw) return null;
+  const match = raw.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/**
+ * Coerce AI readTime into minutes. Models often return word count when the prompt
+ * mentions words/238 — e.g. 550 words stored as readTime 550 → ~3 min.
+ */
+export function parseReadTimeMinutes(value, bodyFallback = '') {
+  const fromBody = estimateReadMinutes(bodyFallback);
+  const parsed = parseNumericReadTime(value);
+
+  if (parsed != null) {
+    if (fromBody > 0 && parsed > 20 && parsed > fromBody * 4) {
+      return Math.max(1, Math.ceil(parsed / 238));
     }
+    if (parsed > 45) {
+      return Math.max(1, Math.min(60, Math.ceil(parsed / 238)));
+    }
+    if (parsed >= 1 && parsed <= 60) return parsed;
   }
-  return estimateReadMinutes(bodyFallback);
+
+  return fromBody || 3;
+}
+
+/** Fix stored readTime for API responses (list items may omit body). */
+export function sanitizeReadTimeMinutes(stored, body = '') {
+  return parseReadTimeMinutes(stored, body);
 }
 
 function ensureHtmlBody(body) {

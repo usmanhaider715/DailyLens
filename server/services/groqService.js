@@ -17,6 +17,12 @@ import {
   shouldFallbackFromBluesminds,
 } from '../lib/bluesminds.js';
 import {
+  clodChatCompletion,
+  clodErrorMessage,
+  isClodConfigured,
+  shouldFallbackFromClod,
+} from '../lib/clod.js';
+import {
   getOpenRouterConfig,
   isOpenRouterConfigured,
   isOpenRouterContentError,
@@ -43,7 +49,12 @@ function parseJsonFromText(text) {
 }
 
 export function groqErrorMessage(err) {
-  return bluesmindsErrorMessage(err) || openRouterErrorMessage(err) || groqOnlyErrorMessage(err);
+  return (
+    bluesmindsErrorMessage(err) ||
+    clodErrorMessage(err) ||
+    openRouterErrorMessage(err) ||
+    groqOnlyErrorMessage(err)
+  );
 }
 
 function groqOnlyErrorMessage(err) {
@@ -57,7 +68,12 @@ export function isGroqRateLimitError(err) {
 }
 
 export function isAiRateLimitError(err) {
-  return isBluesmindsRateLimitError(err) || isOpenRouterRateLimitError(err) || isGroqRateLimitError(err);
+  return (
+    isBluesmindsRateLimitError(err) ||
+    isOpenRouterRateLimitError(err) ||
+    isGroqRateLimitError(err) ||
+    err?.response?.status === 429
+  );
 }
 
 export function isAiContentError(err) {
@@ -242,6 +258,58 @@ async function generateWithOpenRouter(rawArticle, userPrompt, compactPrompt) {
   throw lastErr || new Error('OpenRouter SEO article generation failed');
 }
 
+async function generateWithClod(rawArticle, userPrompt, compactPrompt) {
+  const attempts = [
+    {
+      system: SEO_ARTICLE_SYSTEM,
+      prompt: compactPrompt,
+      label: 'compact',
+      maxTokens: Number(process.env.CLOD_MAX_TOKENS) || 4096,
+    },
+    {
+      system: SEO_ARTICLE_SYSTEM,
+      prompt: userPrompt,
+      label: 'full',
+      maxTokens: Number(process.env.CLOD_MAX_TOKENS) || 4096,
+    },
+  ];
+
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const { content, model } = await clodChatCompletion({
+        messages: [
+          { role: 'system', content: attempt.system },
+          { role: 'user', content: attempt.prompt },
+        ],
+        jsonMode: true,
+        temperature: 0.2,
+        maxTokens: attempt.maxTokens,
+      });
+      return parseAndFinalize(content, rawArticle, `clod/${model}`);
+    } catch (err) {
+      lastErr = err;
+      logger.warn(`Clod.io SEO attempt failed (${attempt.label})`, err.message);
+      if (!shouldFallbackFromClod(err) && !isOpenRouterContentError(err)) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastErr || new Error('Clod.io SEO article generation failed');
+}
+
+function resolveFallbackAfterOpenRouter() {
+  if (isClodConfigured()) return 'clod';
+  if (isBluesmindsConfigured()) return 'bluesminds';
+  return 'groq';
+}
+
+function resolveFallbackAfterClod() {
+  if (isBluesmindsConfigured()) return 'bluesminds';
+  return 'groq';
+}
+
 async function generateWithGroqModel(apiKey, model, userPrompt, rawArticle, compactPrompt) {
   const prompts = [compactPrompt, userPrompt];
   let lastErr;
@@ -296,15 +364,53 @@ async function generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt) 
 }
 
 async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPrompt, bluesmindsPrompt) {
+  if (isOpenRouterConfigured()) {
+    try {
+      return await generateWithOpenRouter(rawArticle, userPrompt, compactPrompt);
+    } catch (err) {
+      const nextProvider = resolveFallbackAfterOpenRouter();
+      logger.warn(`OpenRouter failed — falling back to ${nextProvider}`, openRouterErrorMessage(err));
+      await logAiFallback({
+        primaryProvider: 'openrouter',
+        fallbackProvider: nextProvider,
+        reason: 'openrouter_failure',
+        errorMessage: openRouterErrorMessage(err),
+        articleTitle: rawArticle.title,
+        sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+      });
+    }
+  }
+
+  if (isClodConfigured()) {
+    try {
+      return await generateWithClod(rawArticle, userPrompt, compactPrompt);
+    } catch (err) {
+      if (shouldFallbackFromClod(err) || isOpenRouterContentError(err)) {
+        const nextProvider = resolveFallbackAfterClod();
+        logger.warn(`Clod.io failed — falling back to ${nextProvider}`, clodErrorMessage(err));
+        await logAiFallback({
+          primaryProvider: 'clod',
+          fallbackProvider: nextProvider,
+          reason: 'clod_failure',
+          errorMessage: clodErrorMessage(err),
+          articleTitle: rawArticle.title,
+          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
   if (isBluesmindsConfigured()) {
     try {
       return await generateWithBluesminds(rawArticle, bluesmindsPrompt, compactPrompt);
     } catch (err) {
       if (shouldFallbackFromBluesminds(err)) {
-        logger.warn('Bluesminds failed — falling back to OpenRouter/Groq', bluesmindsErrorMessage(err));
+        logger.warn('Bluesminds failed — falling back to Groq', bluesmindsErrorMessage(err));
         await logAiFallback({
           primaryProvider: 'bluesminds',
-          fallbackProvider: isOpenRouterConfigured() ? 'openrouter' : 'groq',
+          fallbackProvider: 'groq',
           reason: 'bluesminds_failure',
           errorMessage: bluesmindsErrorMessage(err),
           articleTitle: rawArticle.title,
@@ -316,52 +422,7 @@ async function generateSeoArticleWithFallbacks(rawArticle, userPrompt, compactPr
     }
   }
 
-  if (isOpenRouterConfigured()) {
-    try {
-      return await generateWithOpenRouter(rawArticle, userPrompt, compactPrompt);
-    } catch (err) {
-      if (shouldFallbackFromOpenRouterToGroq(err)) {
-        logger.warn('OpenRouter failed — falling back to Groq', openRouterErrorMessage(err));
-        await logAiFallback({
-          primaryProvider: 'openrouter',
-          fallbackProvider: 'groq',
-          reason: 'openrouter_failure',
-          errorMessage: openRouterErrorMessage(err),
-          articleTitle: rawArticle.title,
-          sourceUrl: rawArticle.url || rawArticle.sourceUrl,
-        });
-        try {
-          return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
-        } catch (groqErr) {
-          if (isGroqRateLimitError(groqErr) && isOpenRouterConfigured()) {
-            logger.warn('Groq also rate limited — retrying OpenRouter compact prompt');
-            await sleep(parseRetryAfterMs(groqErr));
-            return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
-          }
-          throw groqErr;
-        }
-      }
-      throw err;
-    }
-  }
-
-  try {
-    return await generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
-  } catch (groqErr) {
-    if (isOpenRouterConfigured() && (isGroqRateLimitError(groqErr) || isOpenRouterContentError(groqErr))) {
-      logger.warn('Groq failed — falling back to OpenRouter', groqErrorMessage(groqErr));
-      await logAiFallback({
-        primaryProvider: 'groq',
-        fallbackProvider: 'openrouter',
-        reason: 'groq_failure',
-        errorMessage: groqErrorMessage(groqErr),
-        articleTitle: rawArticle.title,
-        sourceUrl: rawArticle.url || rawArticle.sourceUrl,
-      });
-      return generateWithOpenRouter(rawArticle, compactPrompt, compactPrompt);
-    }
-    throw groqErr;
-  }
+  return generateSeoArticleViaGroq(rawArticle, userPrompt, compactPrompt);
 }
 
 export async function generateSeoArticle(rawArticle) {

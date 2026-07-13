@@ -4,7 +4,10 @@ import {
   defaultEvergreenCategories,
 } from '../models/EvergreenConfig.js';
 import {
-  runEvergreenPipeline,
+  startEvergreenRunJob,
+  getEvergreenRunJob,
+  controlEvergreenRun,
+  getActiveEvergreenRunJob,
   listPendingEvergreen,
   approveEvergreenArticle,
   rejectEvergreenArticle,
@@ -17,12 +20,14 @@ export async function getEvergreenSettings(req, res, next) {
     const config = await getEvergreenConfig();
     const pending = await listPendingEvergreen({ page: 1, limit: 5 });
     const logs = await listEvergreenPipelineLogs(20);
+    const activeJob = getActiveEvergreenRunJob();
     res.json({
       config,
       pendingCount: pending.total,
       pendingPreview: pending.items,
       logs,
       running: isEvergreenPipelineRunning(),
+      activeJob,
     });
   } catch (e) {
     next(e);
@@ -54,11 +59,42 @@ export async function putEvergreenSettings(req, res, next) {
 export async function postEvergreenRun(req, res, next) {
   try {
     const category = req.body?.category || null;
-    const result = await runEvergreenPipeline({ triggeredBy: 'manual', categoryFilter: category });
+    const result = await startEvergreenRunJob({ triggeredBy: 'manual', categoryFilter: category });
     res.json(result);
   } catch (e) {
-    if (e.status === 409) return res.status(409).json({ message: e.message });
+    if (e.status === 409) return res.status(409).json({ message: e.message, jobId: e.jobId });
+    if (e.status === 400) return res.status(400).json({ message: e.message });
     if (e.status === 503) return res.status(503).json({ message: e.message });
+    next(e);
+  }
+}
+
+export async function getEvergreenRunStatus(req, res, next) {
+  try {
+    const job = getEvergreenRunJob(req.params.jobId);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    res.json(job);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function postEvergreenRunControl(req, res, next) {
+  try {
+    const action = req.body?.action || req.params.action;
+    const job = controlEvergreenRun(req.params.jobId, action);
+    if (!job) return res.status(404).json({ message: 'Job not found or invalid action' });
+    res.json(job);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getEvergreenActiveJob(req, res, next) {
+  try {
+    const job = getActiveEvergreenRunJob();
+    res.json({ job });
+  } catch (e) {
     next(e);
   }
 }

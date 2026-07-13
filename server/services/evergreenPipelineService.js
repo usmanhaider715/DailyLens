@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto, { randomUUID } from 'crypto';
 import { Article } from '../models/Article.js';
 import { Category } from '../models/Category.js';
 import { EvergreenPipelineLog } from '../models/EvergreenPipelineLog.js';
@@ -17,12 +17,86 @@ import { computeTopicHash, isDuplicateTopic } from '../utils/evergreenDedup.js';
 import { resolveLicensedHeroImage, buildImageAttribution } from '../services/licensedImageService.js';
 import { persistFeaturedImageIfRemote } from '../utils/persistHeroImage.js';
 import { ensureUniqueSlug, estimateReadTime } from '../utils/articleHelpers.js';
+import { hashUrl } from '../utils/hashUrl.js';
 import { slugify } from '../utils/slugify.js';
 import { invalidateSitemapCache } from '../services/sitemapService.js';
+import { isAiRateLimitError, parseRetryAfterMs } from './groqService.js';
 import { logger } from '../utils/logger.js';
+import { stripEditorPlaceholders } from '../utils/stripEditorPlaceholders.js';
 
 const YMYL = new Set(['Finance', 'Insurance', 'Legal', 'Health']);
+const JOB_TTL_MS = 2 * 60 * 60 * 1000;
+const ARTICLE_GAP_MS = Number(process.env.EVERGREEN_ARTICLE_GAP_MS) || 8000;
+
+class StopRunError extends Error {
+  constructor() {
+    super('Stopped by user');
+    this.code = 'STOPPED';
+  }
+}
+
+class SkipArticleError extends Error {
+  constructor() {
+    super('Skipped by user');
+    this.code = 'SKIP';
+  }
+}
+
+const runJobs = new Map();
 let pipelineRunning = false;
+
+function cleanupOldRunJobs() {
+  const cutoff = Date.now() - JOB_TTL_MS;
+  for (const [id, job] of runJobs.entries()) {
+    if (job.finishedAt && job.finishedAt < cutoff) runJobs.delete(id);
+  }
+}
+
+function syncJobCounts(job) {
+  job.done = (job.generated || 0) + (job.failed || 0) + (job.skippedCount || 0);
+}
+
+function touchJob(job, patch) {
+  if (!job) return;
+  Object.assign(job, patch);
+  syncJobCounts(job);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function assertNotStopped(job) {
+  if (job?.control?.stopped) throw new StopRunError();
+}
+
+async function waitWhilePaused(job) {
+  while (job?.control?.paused) {
+    assertNotStopped(job);
+    touchJob(job, { currentPhase: 'paused' });
+    await sleep(500);
+  }
+}
+
+async function sleepInterruptible(ms, job) {
+  const step = 500;
+  let left = ms;
+  while (left > 0) {
+    assertNotStopped(job);
+    if (job?.control?.skipWait || job?.control?.skipCurrent) {
+      job.control.skipWait = false;
+      return;
+    }
+    await waitWhilePaused(job);
+    const chunk = Math.min(step, left);
+    await sleep(chunk);
+    left -= chunk;
+  }
+}
+
+function clearSkipFlag(job) {
+  if (job?.control) job.control.skipCurrent = false;
+}
 
 function localTimeKey(timezone) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -41,6 +115,50 @@ function localTimeKey(timezone) {
   };
 }
 
+function createRunJob({ triggeredBy, categoryFilter, categories, total }) {
+  const aiConfig = getEvergreenClaudeConfig();
+  return {
+    id: randomUUID(),
+    runId: randomUUID(),
+    status: 'running',
+    triggeredBy,
+    categoryFilter,
+    total,
+    done: 0,
+    generated: 0,
+    pending: 0,
+    published: 0,
+    failed: 0,
+    skippedCount: 0,
+    duplicatesRejected: 0,
+    currentPhase: 'starting',
+    currentCategory: null,
+    currentTitle: null,
+    currentModel: aiConfig.ideaModel || null,
+    configuredModel: aiConfig.ideaModel || null,
+    waitingSeconds: 0,
+    rateLimited: false,
+    categoryBreakdown: categories.map((c) => ({
+      category: c.name,
+      requested: Math.max(0, Number(c.articlesPerDay) || 0),
+      done: 0,
+      failed: 0,
+    })),
+    errors: [],
+    details: [],
+    summary: null,
+    logId: null,
+    startedAt: Date.now(),
+    finishedAt: null,
+    control: {
+      paused: false,
+      stopped: false,
+      skipCurrent: false,
+      skipWait: false,
+    },
+  };
+}
+
 async function loadExistingTopics(category) {
   return Article.find({
     contentType: 'evergreen',
@@ -53,8 +171,7 @@ async function loadExistingTopics(category) {
     .lean();
 }
 
-async function generateTopicIdeas(category, count, existingRows) {
-  const config = getEvergreenClaudeConfig();
+async function generateTopicIdeas(category, count, existingRows, job) {
   const existingList = existingRows
     .map((r) => `- ${r.title}${r.targetKeyword ? ` (${r.targetKeyword})` : ''}`)
     .join('\n');
@@ -71,20 +188,24 @@ ${existingList || '(none yet)'}
 Return ONLY a JSON object with key "ideas" containing an array, no preamble:
 {"ideas":[{"title":"","target_keyword":"","search_intent":"informational|commercial|transactional","one_line_angle":"","slug":""}]}`;
 
+  touchJob(job, { currentPhase: 'ideating', currentCategory: category, currentTitle: null });
+
   const { content, usage, costUsd, model } = await evergreenClaudeChat({
     purpose: 'idea',
     maxTokens: 2000,
     temperature: 0.5,
     messages: [{ role: 'user', content: prompt }],
+    onModelAttempt: (m) => touchJob(job, { currentModel: m }),
   });
+
+  touchJob(job, { currentModel: model });
 
   let ideas = parseClaudeJson(content);
   if (!Array.isArray(ideas)) ideas = ideas?.ideas || [];
   return { ideas, usage, costUsd, model };
 }
 
-async function requestReplacementIdea(category, existingRows, rejectedTitle) {
-  const config = getEvergreenClaudeConfig();
+async function requestReplacementIdea(category, existingRows, rejectedTitle, job) {
   const existingList = existingRows.map((r) => r.title).join('; ');
   const prompt = `Category: ${category}. The topic "${rejectedTitle}" was too similar to existing content: ${existingList}.
 Propose ONE replacement evergreen self-help/how-to topic. Return JSON: {"ideas":[{"title":"","target_keyword":"","search_intent":"informational|commercial|transactional","one_line_angle":"","slug":""}]}`;
@@ -93,19 +214,24 @@ Propose ONE replacement evergreen self-help/how-to topic. Return JSON: {"ideas":
     purpose: 'idea',
     maxTokens: 800,
     messages: [{ role: 'user', content: prompt }],
+    onModelAttempt: (m) => touchJob(job, { currentModel: m }),
   });
+  touchJob(job, { currentModel: model });
   let ideas = parseClaudeJson(content);
   if (!Array.isArray(ideas)) ideas = ideas?.ideas || [];
   return { idea: ideas[0], usage, costUsd, model };
 }
 
-async function dedupeIdeas(ideas, existingRows, category, stats) {
+async function dedupeIdeas(ideas, existingRows, category, stats, job) {
+  touchJob(job, { currentPhase: 'deduping' });
   const accepted = [];
   for (const idea of ideas) {
     if (!idea?.title) continue;
     let current = idea;
     let attempts = 0;
     while (attempts < 3) {
+      assertNotStopped(job);
+      await waitWhilePaused(job);
       const check = isDuplicateTopic(current, [...existingRows, ...accepted.map((a) => ({
         title: a.title,
         targetKeyword: a.target_keyword || a.targetKeyword,
@@ -116,8 +242,9 @@ async function dedupeIdeas(ideas, existingRows, category, stats) {
         break;
       }
       stats.duplicatesRejected += 1;
+      if (job) job.duplicatesRejected = stats.duplicatesRejected;
       attempts += 1;
-      const repl = await requestReplacementIdea(category, existingRows, current.title);
+      const repl = await requestReplacementIdea(category, existingRows, current.title, job);
       stats.usage.input += repl.usage?.prompt_tokens || repl.usage?.input_tokens || 0;
       stats.usage.output += repl.usage?.completion_tokens || repl.usage?.output_tokens || 0;
       stats.costUsd += repl.costUsd || 0;
@@ -128,8 +255,7 @@ async function dedupeIdeas(ideas, existingRows, category, stats) {
   return accepted;
 }
 
-async function writeEvergreenArticle(topic, category) {
-  const config = getEvergreenClaudeConfig();
+async function writeEvergreenArticle(topic, category, job) {
   const ymylNote = YMYL.has(category)
     ? `- Include a clear, natural disclaimer near the end stating this is general educational information, not personalized financial/legal/medical advice, and that readers should consult a licensed professional for their specific situation`
     : '';
@@ -150,23 +276,33 @@ Requirements:
 - End with a short 'Key takeaways' bullet summary
 - Do NOT invent statistics, studies, named experts, or quotes
 - Avoid AI filler phrases ('in today's fast-paced world', 'in conclusion', 'delve into')
+- This article is published as-is with NO human editing. NEVER include placeholder text, editor notes, or instructions such as '(Note: insert a download link here)', '[insert link]', 'in a real article…', 'replace this with…', 'TODO', or 'download your free template here'. Do not reference downloads, links, images, or resources that you cannot actually provide. Every sentence must be final, publish-ready copy.
 ${ymylNote}
 
 Return ONLY JSON:
 {"headline":"","meta_description":"","body_html":"","faq":[{"question":"","answer":""}],"suggested_image_keywords":["","",""],"tags":["","","","",""]}`;
+
+  touchJob(job, {
+    currentPhase: 'writing',
+    currentTitle: topic.title,
+    currentCategory: category,
+  });
 
   const { content, usage, costUsd, model } = await evergreenClaudeChat({
     purpose: 'write',
     maxTokens: 8000,
     temperature: 0.45,
     messages: [{ role: 'user', content: prompt }],
+    onModelAttempt: (m) => touchJob(job, { currentModel: m }),
   });
 
+  touchJob(job, { currentModel: model });
   const article = parseClaudeJson(content);
   return { article, usage, costUsd, model };
 }
 
-async function attachHeroImage(articleJson, slugHint) {
+async function attachHeroImage(articleJson, slugHint, job) {
+  touchJob(job, { currentPhase: 'imaging' });
   const keywords = articleJson.suggested_image_keywords || articleJson.suggestedImageKeywords || [];
   const licensed = await resolveLicensedHeroImage({
     title: articleJson.headline,
@@ -205,10 +341,11 @@ async function saveEvergreenArticle({
   const title = articleJson.headline || topic.title;
   const slugBase = slugify(topic.slug || title);
   const slug = await ensureUniqueSlug(slugBase);
-  const body = articleJson.body_html || articleJson.bodyHtml || '';
+  const body = stripEditorPlaceholders(articleJson.body_html || articleJson.bodyHtml || '');
   const summary = (articleJson.meta_description || articleJson.metaDescription || '').slice(0, 320);
   const now = new Date();
   const published = !requireApproval;
+  const originalUrl = `evergreen://${slug}-${Date.now()}`;
 
   const doc = await Article.create({
     title,
@@ -244,7 +381,8 @@ async function saveEvergreenArticle({
           source: hero.source,
         }
       : undefined,
-    originalUrl: `evergreen://${slug}-${Date.now()}`,
+    originalUrl,
+    urlHash: hashUrl(originalUrl),
   });
 
   if (published) {
@@ -255,27 +393,128 @@ async function saveEvergreenArticle({
   return doc;
 }
 
-export async function runEvergreenPipeline({ triggeredBy = 'manual', categoryFilter = null } = {}) {
-  if (pipelineRunning) {
+async function processArticleWithRetry(topic, cat, stats, job, articleIndex) {
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    assertNotStopped(job);
+    if (job?.control?.skipCurrent) {
+      clearSkipFlag(job);
+      throw new SkipArticleError();
+    }
+    await waitWhilePaused(job);
+    try {
+      const written = await writeEvergreenArticle(topic, cat.name, job);
+      stats.usage.input += written.usage?.prompt_tokens || written.usage?.input_tokens || 0;
+      stats.usage.output += written.usage?.completion_tokens || written.usage?.output_tokens || 0;
+      stats.costUsd += written.costUsd || 0;
+
+      const hero = await attachHeroImage(written.article, slugify(topic.slug || topic.title), job);
+      touchJob(job, { currentPhase: 'saving' });
+
+      const saved = await saveEvergreenArticle({
+        topic,
+        articleJson: written.article,
+        category: cat.name,
+        requireApproval: !!cat.requireApproval,
+        aiModelUsed: written.model,
+        tokenCost: written.costUsd,
+        hero,
+      });
+
+      stats.generated += 1;
+      if (saved.reviewStatus === 'pending') stats.pending += 1;
+      if (saved.reviewStatus === 'published') stats.published += 1;
+      stats.details.push({
+        category: cat.name,
+        title: saved.title,
+        slug: saved.slug,
+        action: 'created',
+        reviewStatus: saved.reviewStatus,
+        aiModelUsed: written.model,
+      });
+
+      const breakdown = job?.categoryBreakdown?.find((b) => b.category === cat.name);
+      if (breakdown) breakdown.done += 1;
+
+      touchJob(job, {
+        generated: stats.generated,
+        pending: stats.pending,
+        published: stats.published,
+        details: [...stats.details],
+        categoryBreakdown: job?.categoryBreakdown ? [...job.categoryBreakdown] : [],
+        rateLimited: false,
+        waitingSeconds: 0,
+      });
+
+      if (articleIndex > 0) {
+        touchJob(job, {
+          currentPhase: 'waiting_gap',
+          waitingSeconds: Math.round(ARTICLE_GAP_MS / 1000),
+        });
+        await sleepInterruptible(ARTICLE_GAP_MS, job);
+      }
+
+      return saved;
+    } catch (err) {
+      lastErr = err;
+      if (err instanceof SkipArticleError || err instanceof StopRunError) throw err;
+      if (job?.control?.skipCurrent) {
+        clearSkipFlag(job);
+        throw new SkipArticleError();
+      }
+      if (isAiRateLimitError(err) && attempt < 2) {
+        const waitMs = parseRetryAfterMs(err);
+        touchJob(job, {
+          currentPhase: 'waiting_rate_limit',
+          rateLimited: true,
+          waitingSeconds: Math.round(waitMs / 1000),
+        });
+        await sleepInterruptible(waitMs, job);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
+export async function runEvergreenPipeline({
+  triggeredBy = 'manual',
+  categoryFilter = null,
+  job = null,
+} = {}) {
+  if (!job && pipelineRunning) {
     const err = new Error('Evergreen pipeline is already running');
     err.status = 409;
     throw err;
   }
   if (!isEvergreenClaudeConfigured()) {
-    const err = new Error('EVERGREEN_CLAUDE_API_KEY is not configured');
+    const err = new Error('OPENROUTER_API_KEY, BLUESMINDS_API_KEY, or GROQ_API_KEY is not configured');
     err.status = 503;
     throw err;
   }
 
-  pipelineRunning = true;
-  const runId = crypto.randomUUID();
+  if (!job) pipelineRunning = true;
+
   const config = await getEvergreenConfig();
+  const categories = (config.categories || []).filter(
+    (c) => c.enabled && (!categoryFilter || c.name === categoryFilter),
+  );
+  const total = categories.reduce((sum, c) => sum + Math.max(0, Number(c.articlesPerDay) || 0), 0);
+
+  if (job) {
+    touchJob(job, { total, categoryBreakdown: job.categoryBreakdown, currentPhase: 'starting' });
+  }
+
+  const runId = job?.runId || crypto.randomUUID();
   const log = await EvergreenPipelineLog.create({
     runId,
     triggeredBy,
     status: 'running',
     categoriesRun: [],
   });
+
+  if (job) job.logId = log._id.toString();
 
   const stats = {
     generated: 0,
@@ -288,12 +527,15 @@ export async function runEvergreenPipeline({ triggeredBy = 'manual', categoryFil
     details: [],
   };
 
+  let stoppedByUser = false;
+
   try {
-    const categories = (config.categories || []).filter(
-      (c) => c.enabled && (!categoryFilter || c.name === categoryFilter),
-    );
+    let articleIndex = 0;
 
     for (const cat of categories) {
+      assertNotStopped(job);
+      await waitWhilePaused(job);
+
       const count = Math.max(0, Number(cat.articlesPerDay) || 0);
       if (!count) continue;
 
@@ -301,54 +543,89 @@ export async function runEvergreenPipeline({ triggeredBy = 'manual', categoryFil
       const existingRows = await loadExistingTopics(cat.name);
 
       try {
-        const ideaResult = await generateTopicIdeas(cat.name, count, existingRows);
+        const ideaResult = await generateTopicIdeas(cat.name, count, existingRows, job);
         stats.usage.input += ideaResult.usage?.prompt_tokens || ideaResult.usage?.input_tokens || 0;
         stats.usage.output += ideaResult.usage?.completion_tokens || ideaResult.usage?.output_tokens || 0;
         stats.costUsd += ideaResult.costUsd || 0;
 
-        const topics = await dedupeIdeas(ideaResult.ideas || [], existingRows, cat.name, stats);
+        const topics = await dedupeIdeas(ideaResult.ideas || [], existingRows, cat.name, stats, job);
 
         for (const topic of topics.slice(0, count)) {
+          assertNotStopped(job);
+          await waitWhilePaused(job);
+
+          if (job?.control?.skipCurrent) {
+            clearSkipFlag(job);
+            stats.errors.push(`${cat.name}: skipped ${topic.title}`);
+            stats.details.push({ category: cat.name, title: topic.title, action: 'skipped' });
+            job.skippedCount = (job.skippedCount || 0) + 1;
+            const breakdown = job.categoryBreakdown?.find((b) => b.category === cat.name);
+            if (breakdown) breakdown.failed += 1;
+            touchJob(job, {
+              failed: (job.failed || 0) + 1,
+              skippedCount: job.skippedCount,
+              errors: [...stats.errors],
+              details: [...stats.details],
+            });
+            continue;
+          }
+
           try {
-            const written = await writeEvergreenArticle(topic, cat.name);
-            stats.usage.input += written.usage?.prompt_tokens || written.usage?.input_tokens || 0;
-            stats.usage.output += written.usage?.completion_tokens || written.usage?.output_tokens || 0;
-            stats.costUsd += written.costUsd || 0;
-
-            const hero = await attachHeroImage(written.article, slugify(topic.slug || topic.title));
-            const saved = await saveEvergreenArticle({
-              topic,
-              articleJson: written.article,
-              category: cat.name,
-              requireApproval: !!cat.requireApproval,
-              aiModelUsed: written.model,
-              tokenCost: written.costUsd,
-              hero,
-            });
-
-            stats.generated += 1;
-            if (saved.reviewStatus === 'pending') stats.pending += 1;
-            if (saved.reviewStatus === 'published') stats.published += 1;
-            stats.details.push({
-              category: cat.name,
-              title: saved.title,
-              slug: saved.slug,
-              action: 'created',
-              reviewStatus: saved.reviewStatus,
-            });
+            await processArticleWithRetry(topic, cat, stats, job, articleIndex);
+            articleIndex += 1;
           } catch (err) {
+            if (err instanceof StopRunError) {
+              stoppedByUser = true;
+              throw err;
+            }
+            if (err instanceof SkipArticleError) {
+              stats.errors.push(`${cat.name}: skipped ${topic.title}`);
+              stats.details.push({ category: cat.name, title: topic.title, action: 'skipped' });
+              job.skippedCount = (job.skippedCount || 0) + 1;
+              job.failed = (job.failed || 0) + 1;
+              const breakdown = job.categoryBreakdown?.find((b) => b.category === cat.name);
+              if (breakdown) breakdown.failed += 1;
+              touchJob(job, {
+                failed: job.failed,
+                skippedCount: job.skippedCount,
+                errors: [...stats.errors],
+                details: [...stats.details],
+              });
+              continue;
+            }
             stats.errors.push(`${cat.name}: ${err.message}`);
+            job.failed = (job.failed || 0) + 1;
+            const breakdown = job.categoryBreakdown?.find((b) => b.category === cat.name);
+            if (breakdown) breakdown.failed += 1;
+            touchJob(job, {
+              failed: job.failed,
+              errors: [...stats.errors],
+              categoryBreakdown: job?.categoryBreakdown ? [...job.categoryBreakdown] : [],
+            });
             logger.error('Evergreen article failed', cat.name, err.message);
           }
         }
       } catch (err) {
+        if (err instanceof StopRunError) {
+          stoppedByUser = true;
+          throw err;
+        }
         stats.errors.push(`${cat.name} ideation: ${err.message}`);
+        touchJob(job, { errors: [...stats.errors] });
       }
     }
 
+    const finalStatus = stats.errors.length ? (stats.generated ? 'partial' : 'failed') : 'success';
+    const summary = stoppedByUser
+      ? `Stopped — ${stats.generated} generated (${stats.published} live, ${stats.pending} pending)`
+      : stats.errors.length
+        ? `${stats.generated} generated (${stats.published} live, ${stats.pending} pending), ${stats.errors.length} issues`
+        : `${stats.generated} generated (${stats.published} live, ${stats.pending} pending)`;
+
     await EvergreenPipelineLog.findByIdAndUpdate(log._id, {
       finishedAt: new Date(),
-      status: stats.errors.length ? (stats.generated ? 'partial' : 'failed') : 'success',
+      status: stoppedByUser ? 'partial' : finalStatus,
+      categoriesRun: log.categoriesRun,
       articlesGenerated: stats.generated,
       articlesPending: stats.pending,
       articlesPublished: stats.published,
@@ -359,10 +636,169 @@ export async function runEvergreenPipeline({ triggeredBy = 'manual', categoryFil
       details: stats.details,
     });
 
-    return { runId, ...stats };
+    if (job) {
+      touchJob(job, {
+        status: stoppedByUser ? 'stopped' : finalStatus === 'failed' ? 'error' : finalStatus === 'partial' ? 'partial' : 'complete',
+        currentPhase: stoppedByUser ? 'stopped' : finalStatus === 'failed' ? 'error' : 'complete',
+        summary,
+        generated: stats.generated,
+        pending: stats.pending,
+        published: stats.published,
+        duplicatesRejected: stats.duplicatesRejected,
+        errors: stats.errors,
+        details: stats.details,
+        finishedAt: Date.now(),
+        currentTitle: null,
+        waitingSeconds: 0,
+      });
+    }
+
+    return { runId, ...stats, summary, status: job?.status || finalStatus };
+  } catch (err) {
+    if (err instanceof StopRunError) {
+      stoppedByUser = true;
+      const summary = `Stopped — ${stats.generated} generated (${stats.published} live, ${stats.pending} pending)`;
+      await EvergreenPipelineLog.findByIdAndUpdate(log._id, {
+        finishedAt: new Date(),
+        status: 'partial',
+        categoriesRun: log.categoriesRun,
+        articlesGenerated: stats.generated,
+        articlesPending: stats.pending,
+        articlesPublished: stats.published,
+        duplicatesRejected: stats.duplicatesRejected,
+        failureMessages: stats.errors,
+        tokenUsage: stats.usage,
+        tokenCostUsd: stats.costUsd,
+        details: stats.details,
+      });
+      if (job) {
+        touchJob(job, {
+          status: 'stopped',
+          currentPhase: 'stopped',
+          summary,
+          generated: stats.generated,
+          pending: stats.pending,
+          published: stats.published,
+          finishedAt: Date.now(),
+        });
+      }
+      return { runId, ...stats, summary, status: 'stopped' };
+    }
+
+    if (job) {
+      touchJob(job, {
+        status: 'error',
+        currentPhase: 'error',
+        summary: err.message,
+        finishedAt: Date.now(),
+      });
+    }
+    throw err;
   } finally {
-    pipelineRunning = false;
+    if (!job) pipelineRunning = false;
   }
+}
+
+export async function startEvergreenRunJob({ triggeredBy = 'manual', categoryFilter = null } = {}) {
+  cleanupOldRunJobs();
+  const active = getActiveEvergreenRunJob();
+  if (active) {
+    const err = new Error('Evergreen pipeline is already running');
+    err.status = 409;
+    err.jobId = active.id;
+    throw err;
+  }
+
+  const config = await getEvergreenConfig();
+  const categories = (config.categories || []).filter(
+    (c) => c.enabled && (!categoryFilter || c.name === categoryFilter),
+  );
+  const total = categories.reduce((sum, c) => sum + Math.max(0, Number(c.articlesPerDay) || 0), 0);
+
+  if (!total) {
+    const err = new Error('No enabled categories with articles to generate');
+    err.status = 400;
+    throw err;
+  }
+
+  const job = createRunJob({ triggeredBy, categoryFilter, categories, total });
+  runJobs.set(job.id, job);
+  pipelineRunning = true;
+
+  runEvergreenPipeline({ triggeredBy, categoryFilter, job })
+    .catch((err) => {
+      const j = runJobs.get(job.id);
+      if (j && j.status === 'running') {
+        touchJob(j, {
+          status: 'error',
+          currentPhase: 'error',
+          summary: err.message || 'Run failed',
+          finishedAt: Date.now(),
+        });
+      }
+      logger.error('Evergreen job failed', err);
+    })
+    .finally(() => {
+      pipelineRunning = false;
+    });
+
+  return {
+    jobId: job.id,
+    total,
+    categoryFilter,
+    configuredModel: job.configuredModel,
+  };
+}
+
+export function getEvergreenRunJob(jobId) {
+  cleanupOldRunJobs();
+  return runJobs.get(jobId) || null;
+}
+
+export function getActiveEvergreenRunJob() {
+  cleanupOldRunJobs();
+  for (const job of runJobs.values()) {
+    if (job.status === 'running') return job;
+  }
+  return null;
+}
+
+/** pause | continue | stop | skip */
+export function controlEvergreenRun(jobId, action) {
+  const job = runJobs.get(jobId);
+  if (!job) return null;
+  if (!job.control) {
+    job.control = { paused: false, stopped: false, skipCurrent: false, skipWait: false };
+  }
+
+  switch (action) {
+    case 'pause':
+      job.control.paused = true;
+      touchJob(job, { currentPhase: 'paused' });
+      break;
+    case 'continue':
+      job.control.paused = false;
+      job.control.skipWait = true;
+      if (job.currentPhase === 'paused') {
+        touchJob(job, { currentPhase: 'writing' });
+      }
+      break;
+    case 'stop':
+      job.control.stopped = true;
+      job.control.paused = false;
+      job.control.skipWait = true;
+      job.control.skipCurrent = true;
+      touchJob(job, { currentPhase: 'stopping' });
+      break;
+    case 'skip':
+      job.control.skipCurrent = true;
+      job.control.skipWait = true;
+      break;
+    default:
+      return null;
+  }
+
+  return job;
 }
 
 export async function tickEvergreenScheduler() {
@@ -376,7 +812,7 @@ export async function tickEvergreenScheduler() {
   logger.info('Evergreen scheduled run starting', { date, hm });
   await updateEvergreenConfig({ lastRunDate: date });
   try {
-    await runEvergreenPipeline({ triggeredBy: 'schedule' });
+    await startEvergreenRunJob({ triggeredBy: 'schedule' });
   } catch (err) {
     logger.error('Evergreen scheduled run failed', err.message);
   }
@@ -444,5 +880,5 @@ export async function listEvergreenPipelineLogs(limit = 20) {
 }
 
 export function isEvergreenPipelineRunning() {
-  return pipelineRunning;
+  return pipelineRunning || !!getActiveEvergreenRunJob();
 }

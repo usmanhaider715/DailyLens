@@ -5,6 +5,7 @@ import { isListicleRoughText } from '../services/seoListiclePrompt.js';
 import { groqErrorMessage, isAiRateLimitError, isGroqRateLimitError } from '../services/groqService.js';
 import { openRouterErrorMessage, isOpenRouterRateLimitError } from '../lib/openrouter.js';
 import { bluesmindsErrorMessage } from '../lib/bluesminds.js';
+import { clodErrorMessage } from '../lib/clod.js';
 import { searchHeroImageCandidates } from '../services/imageDiscoveryService.js';
 import {
   listGoogleTrends,
@@ -101,17 +102,22 @@ export async function generateArticleFromStory(req, res, next) {
     res.json(draft);
   } catch (err) {
     const msg =
-      bluesmindsErrorMessage(err) || openRouterErrorMessage(err) || groqErrorMessage(err) || err?.message || 'AI draft failed';
+      bluesmindsErrorMessage(err) ||
+      clodErrorMessage(err) ||
+      openRouterErrorMessage(err) ||
+      groqErrorMessage(err) ||
+      err?.message ||
+      'AI draft failed';
     const status = err?.response?.status;
     if (status === 429 || isAiRateLimitError(err) || isOpenRouterRateLimitError(err) || isGroqRateLimitError(err)) {
       return res.status(429).json({ message: msg });
     }
     if (status === 401) {
       return res.status(500).json({
-        message: 'Invalid AI API key. Check BLUESMINDS, OPENROUTER, or GROQ keys in server .env.',
+        message: 'Invalid AI API key. Check CLOD, BLUESMINDS, OPENROUTER, or GROQ keys in server .env.',
       });
     }
-    if (/OPENROUTER|GROQ|BLUESMINDS|not configured/i.test(msg)) {
+    if (/OPENROUTER|GROQ|BLUESMINDS|CLOD|not configured/i.test(msg)) {
       return res.status(500).json({ message: msg });
     }
     if (/ECONNRESET|network|timeout/i.test(msg)) {

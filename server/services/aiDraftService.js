@@ -69,6 +69,7 @@ export async function buildAiDraftResponse(raw, suggestedCategory) {
     imageAttribution: hero?.imageAttribution || hero?.credit || '',
     verifiedQuotes: !!article.verifiedQuotes,
     rewriteModel: article.rewriteModel || '',
+    aiModelUsed: article.aiModelUsed || '',
     sourceAttribution: {
       sourceName: raw.sourceName,
       sourceUrl: raw.sourceUrl || raw.url,

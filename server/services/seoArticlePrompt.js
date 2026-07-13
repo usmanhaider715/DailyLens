@@ -10,6 +10,7 @@ NON-NEGOTIABLE:
 4. "body" is HTML only: <p>, <h2><strong>Heading</strong></h2>, <strong> — no markdown.
 5. Do NOT put Sources, Editorial notice, Image credit, Related reading, or FAQ blocks inside body (the CMS adds those).
 6. Pick exactly one category from the allowed list.
+7. Published as-is with NO human editing: never emit placeholder text, editor notes, or instructions such as "(Note: insert a link here)", "[insert link]", "in a real article…", "replace this with…", "TODO", or "download the template here". Never reference downloads, links, or images you cannot actually provide. Every sentence must be final, publish-ready copy.
 
 QUOTES (CRITICAL):
 - Only include a direct quotation if it appears verbatim in the source text provided.
@@ -38,7 +39,7 @@ followUpLinks (REQUIRED — unchanged CMS format):
 
 faqSchema: 2 objects with "question" and "answer" (2–3 sentences each, factual).
 
-Also return: slug, metaTitle (=headline), metaDescription (145–160 chars), tags (5–7), primaryKeyword, secondaryKeywords[], entityKeywords[], isBreaking, readTime (words/238), seoScore 1–10, geoScore 1–10, imagePrompt (DALL·E news photo, 16:9).`;
+Also return: slug, metaTitle (=headline), metaDescription (145–160 chars), tags (5–7), primaryKeyword, secondaryKeywords[], entityKeywords[], isBreaking, readTime (integer minutes to read, typically 2–8 for news), seoScore 1–10, geoScore 1–10, imagePrompt (DALL·E news photo, 16:9).`;
 
 export function buildSeoArticleUserPrompt(raw, tone, minW, maxW) {
   const sourceUrl = raw.sourceUrl || raw.url || '';

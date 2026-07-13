@@ -196,7 +196,7 @@ async function fetchHotFeedItems(sourceNames, category, limit) {
   return out;
 }
 
-async function publishFromFeedItem(item, category) {
+async function publishFromFeedItem(item, category, job = null) {
   const dup = await checkDuplicateBeforeInsert({
     sourceUrl: item.url,
     headline: item.title,
@@ -219,7 +219,16 @@ async function publishFromFeedItem(item, category) {
     publishedAt: item.publishedAt || new Date().toISOString(),
     suggestedCategory: category,
   };
+  if (job) {
+    touchJob(job, { currentPhase: 'rewriting', currentTitle: item.title, currentCategory: category });
+  }
   const draft = await buildAiDraftResponse(raw, category);
+  if (job) {
+    touchJob(job, {
+      currentModel: draft.aiModelUsed || draft.rewriteModel || null,
+      currentPhase: 'publishing',
+    });
+  }
   const input = {
     title: draft.title,
     summary: draft.summary,
@@ -272,7 +281,7 @@ async function publishFromFeedItemWithRetry(item, category, { job, onWaiting } =
         job.currentFeedItem = item;
         job.currentFeedCategory = category;
       }
-      return await publishFromFeedItem(item, category);
+      return await publishFromFeedItem(item, category, job);
     } catch (err) {
       lastErr = err;
       if (job?.control?.skipCurrent) {
@@ -318,6 +327,8 @@ function createRunJob(period, meta) {
     currentCategory: null,
     currentPhase: 'starting',
     currentTitle: null,
+    currentModel: null,
+    configuredModel: process.env.OPENROUTER_MODEL?.trim() || process.env.BLUESMINDS_MODEL?.trim() || 'gpt-5.5',
     waitingSeconds: 0,
     rateLimited: false,
     categoryBreakdown: [],

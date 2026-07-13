@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { searchFreeImagesForQuery } from './imageDiscoveryService.js';
+import { searchFreeImagesForQuery, searchGoogleImage } from './imageDiscoveryService.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 import { isUsableImageUrl, isRejectedHeroImageUrl } from '../utils/heroImageUtils.js';
 import { logger } from '../utils/logger.js';
@@ -54,6 +54,19 @@ async function searchPexels(query) {
   }
 }
 
+async function searchGoogleFree(query) {
+  const hit = await searchGoogleImage(query, { freeUseOnly: true });
+  if (!hit?.url) return null;
+  return {
+    url: hit.url,
+    credit: hit.credit || 'Google Images (CC / free use)',
+    creditUrl: hit.creditUrl || hit.url,
+    source: 'google_images',
+    license: hit.license || 'creative_commons',
+    viaGoogle: true,
+  };
+}
+
 async function searchWikimedia(query) {
   const list = await searchFreeImagesForQuery(query, { limit: 1 });
   const hit = list.find((item) => item.source === 'wikimedia') || list[0];
@@ -69,7 +82,8 @@ async function searchWikimedia(query) {
 
 /**
  * Resolve a licensed hero image — never hotlink publisher-hosted photos.
- * Priority: Unsplash → Pexels → Wikimedia → AI-generated (Pollinations).
+ * Priority: Unsplash → Pexels → Google (free/CC) → Wikimedia → AI (Pollinations).
+ * (For news articles the original source image is preferred upstream before this runs.)
  */
 export async function resolveLicensedHeroImage({ title, category, keywords = [] }) {
   const query = [title, ...(Array.isArray(keywords) ? keywords : []), category, 'news']
@@ -77,7 +91,7 @@ export async function resolveLicensedHeroImage({ title, category, keywords = [] 
     .join(' ')
     .slice(0, 120);
 
-  for (const search of [searchUnsplash, searchPexels, searchWikimedia]) {
+  for (const search of [searchUnsplash, searchPexels, searchGoogleFree, searchWikimedia]) {
     const hit = await search(query);
     if (hit?.url && isUsableImageUrl(hit.url) && !isRejectedHeroImageUrl(hit.url)) {
       return hit;

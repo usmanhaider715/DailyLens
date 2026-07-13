@@ -15,6 +15,12 @@ import {
   openRouterErrorMessage,
   parseJsonFromModelText,
 } from '../lib/openrouter.js';
+import {
+  clodChatCompletion,
+  clodErrorMessage,
+  isClodConfigured,
+  shouldFallbackFromClod,
+} from '../lib/clod.js';
 import { searchFreeImagesForQuery } from './imageDiscoveryService.js';
 import { resolveFeaturedImageUrl } from '../utils/imageGenerator.js';
 import { slugify } from '../utils/slugify.js';
@@ -108,8 +114,30 @@ async function requestListicleJson(userPrompt) {
       });
       return parseJsonFromModelText(content);
     } catch (err) {
-      if (!process.env.GROQ_API_KEY || !isOpenRouterRetryableError(err)) throw err;
-      logger.warn('OpenRouter listicle failed — trying Groq', openRouterErrorMessage(err));
+      if (!process.env.GROQ_API_KEY && !isClodConfigured()) throw err;
+      if (!isOpenRouterRetryableError(err) && !isClodConfigured()) throw err;
+      logger.warn('OpenRouter listicle failed — trying fallback', openRouterErrorMessage(err));
+    }
+  }
+
+  if (isClodConfigured()) {
+    try {
+      const { content } = await clodChatCompletion({
+        messages: [
+          { role: 'system', content: LISTICLE_SYSTEM },
+          { role: 'user', content: userPrompt },
+        ],
+        jsonMode: true,
+        maxTokens: Number(process.env.CLOD_MAX_TOKENS) || 4096,
+        temperature: 0.25,
+      });
+      return parseJsonFromModelText(content);
+    } catch (err) {
+      if (!process.env.GROQ_API_KEY || shouldFallbackFromClod(err)) {
+        logger.warn('Clod.io listicle failed — trying Groq', clodErrorMessage(err));
+      } else {
+        throw err;
+      }
     }
   }
 

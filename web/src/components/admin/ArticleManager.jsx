@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { Eye } from 'lucide-react';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
 import { formatArticleDateTime } from '../../utils/formatDate.js';
@@ -84,6 +85,9 @@ export function ArticleManager() {
   const isEvergreenSection = section === 'evergreen' || section === 'evergreen-drafts';
   const showEvergreenToggle = section === 'published' || section === 'drafts';
   const showDelete = !isEvergreenSection;
+  const showPublicView = section === 'published' || section === 'evergreen';
+
+  const publicArticleHref = (slug) => `/article/${slug}`;
 
   const toggleSelect = (id) => {
     setSelected((prev) => {
@@ -272,6 +276,7 @@ export function ArticleManager() {
                   />
                 </th>
               ) : null}
+              {showPublicView ? <th className="px-3 py-2 text-left" aria-label="View on site" /> : null}
               <th className="px-3 py-2 text-left">Thumb</th>
               <th className="px-3 py-2 text-left">Headline</th>
               <th className="px-3 py-2">Category</th>
@@ -297,6 +302,24 @@ export function ArticleManager() {
                       checked={selected.has(String(a._id))}
                       onChange={() => toggleSelect(String(a._id))}
                     />
+                  </td>
+                ) : null}
+                {showPublicView ? (
+                  <td className="px-3 py-2">
+                    {a.slug ? (
+                      <a
+                        href={publicArticleHref(a.slug)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-700 dark:hover:bg-gray-800 dark:hover:text-primary-300"
+                        title="View on website"
+                        aria-label={`View "${a.title}" on website`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <span className="inline-block w-7 text-gray-300">—</span>
+                    )}
                   </td>
                 ) : null}
                 <td className="px-3 py-2">

@@ -71,7 +71,9 @@ export function verifyArticleQuotes(body, sourceText, { rejectOnFailure = false 
 export function mapModelToRewriteLabel(modelLabel = '') {
   const label = String(modelLabel || '').toLowerCase();
   if (label.includes('groq') || label.includes('llama')) return 'groq';
-  if (label.includes('openrouter') || label.includes('gpt') || label.includes('claude')) return 'gpt';
+  if (label.includes('openrouter') || label.includes('gpt') || label.includes('claude') || label.includes('clod')) {
+    return 'gpt';
+  }
   if (label.includes('bluesminds')) return 'gpt';
   return 'gpt';
 }

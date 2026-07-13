@@ -4,25 +4,18 @@ import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
 import { Spinner } from '../common/Spinner.jsx';
+import { EvergreenRunProgress } from './EvergreenRunProgress.jsx';
 import { Play, Save, RefreshCw, Check, X, Pencil } from 'lucide-react';
-
-const CATEGORY_NAMES = [
-  'Finance',
-  'Insurance',
-  'Legal',
-  'Technology',
-  'Health',
-  'Business',
-  'Entertainment',
-];
+import { startEvergreenRun, getEvergreenActiveJob } from '@/utils/evergreenRun';
 
 export function EvergreenPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [config, setConfig] = useState(null);
   const [pending, setPending] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [activeJob, setActiveJob] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editBody, setEditBody] = useState('');
 
@@ -36,6 +29,9 @@ export function EvergreenPanel() {
       setConfig(settings.config);
       setPending(pendingData.items || []);
       setLogs(settings.logs || []);
+      if (settings.activeJob?.id) {
+        setActiveJob({ jobId: settings.activeJob.id, label: settings.activeJob.categoryFilter || 'All categories' });
+      }
     } catch {
       toast.error('Could not load evergreen settings');
     } finally {
@@ -45,6 +41,13 @@ export function EvergreenPanel() {
 
   useEffect(() => {
     load();
+    getEvergreenActiveJob()
+      .then((job) => {
+        if (job?.id) {
+          setActiveJob({ jobId: job.id, label: job.categoryFilter || 'All categories' });
+        }
+      })
+      .catch(() => {});
   }, [load]);
 
   const saveSettings = async () => {
@@ -61,17 +64,22 @@ export function EvergreenPanel() {
   };
 
   const runPipeline = async (category = null) => {
-    setRunning(true);
+    setStarting(true);
     try {
-      const { data } = await api.post('/admin/evergreen/run', category ? { category } : {});
-      toast.success(
-        `Run complete — ${data.generated} generated (${data.published} live, ${data.pending} pending)`,
-      );
-      await load();
+      const data = await startEvergreenRun(category);
+      setActiveJob({
+        jobId: data.jobId,
+        label: category || 'All categories',
+      });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Pipeline run failed');
+      const existingJobId = err?.response?.data?.jobId;
+      if (err?.response?.status === 409 && existingJobId) {
+        setActiveJob({ jobId: existingJobId, label: category || 'All categories' });
+      } else {
+        toast.error(err.response?.data?.message || 'Could not start pipeline');
+      }
     } finally {
-      setRunning(false);
+      setStarting(false);
     }
   };
 
@@ -114,22 +122,34 @@ export function EvergreenPanel() {
 
   return (
     <div className="space-y-8">
+      {activeJob?.jobId ? (
+        <EvergreenRunProgress
+          jobId={activeJob.jobId}
+          label={activeJob.label}
+          onComplete={() => {
+            setActiveJob(null);
+            load();
+          }}
+          onClose={() => setActiveJob(null)}
+        />
+      ) : null}
+
       <section className="rounded-xl border border-emerald-200 bg-white p-6 dark:border-emerald-900/50 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Evergreen pipeline</h2>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Claude-powered self-help guides — separate from the news rewrite pipeline.
+              GPT-powered self-help guides via OpenRouter — separate from the news rewrite pipeline.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => runPipeline()}
-              disabled={running}
+              disabled={starting || !!activeJob?.jobId}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
             >
-              {running ? <Spinner /> : <Play className="h-4 w-4" />}
+              {starting ? <Spinner /> : <Play className="h-4 w-4" />}
               Run all categories
             </button>
             <button
@@ -221,7 +241,7 @@ export function EvergreenPanel() {
                     <button
                       type="button"
                       onClick={() => runPipeline(cat.name)}
-                      disabled={running || !cat.enabled}
+                      disabled={starting || !!activeJob?.jobId || !cat.enabled}
                       className="text-xs font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-400"
                     >
                       Run now
@@ -255,6 +275,7 @@ export function EvergreenPanel() {
                     <p className="font-semibold text-gray-900 dark:text-white">{item.title}</p>
                     <p className="mt-1 text-xs text-gray-500">
                       {item.category} · {item.wordCount || '—'} words · keyword: {item.targetKeyword || '—'}
+                      {item.aiModelUsed ? ` · model: ${item.aiModelUsed}` : ''}
                     </p>
                   </div>
                   <div className="flex gap-2">

@@ -1,5 +1,6 @@
 import { wikipediaArticleUrl, normalizeWikipediaLinks } from './wikipediaLinks.js';
 import { stripHtml, prepareArticleHtml } from './stripHtml.js';
+import { stripEditorPlaceholders } from './stripEditorPlaceholders.js';
 
 export const ARTICLE_FOOTER_MARKER = '<!-- ARTICLE_FOOTER -->';
 export const ARTICLE_FOLLOWUP_MARKER = '<!-- ARTICLE_FOLLOWUP -->';
@@ -7,7 +8,7 @@ export const ARTICLE_FOLLOWUP_MARKER = '<!-- ARTICLE_FOLLOWUP -->';
 /** Remove markdown headings / legal blocks the model may still emit. */
 export function cleanArticleMainBody(body) {
   if (!body) return '';
-  let text = body.trim();
+  let text = stripEditorPlaceholders(body).trim();
 
   const cutPatterns = [
     /\n##\s*Sources[\s\S]*$/i,

@@ -4,10 +4,15 @@ import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheServic
 import { publicArticleFilter, newsArticleFilter, evergreenPublicFilter } from '../utils/publicArticleFilter.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 import { recordArticleView } from '../services/viewStatsService.js';
+import { sanitizeReadTimeMinutes } from '../utils/seoArticleNormalize.js';
 
 function enrichArticleHero(article) {
   if (!article) return article;
-  return { ...article, heroImage: normalizeHeroImage(article.heroImage, article.category) };
+  return {
+    ...article,
+    heroImage: normalizeHeroImage(article.heroImage, article.category),
+    readTime: sanitizeReadTimeMinutes(article.readTime, article.body),
+  };
 }
 
 function enrichList(payload) {

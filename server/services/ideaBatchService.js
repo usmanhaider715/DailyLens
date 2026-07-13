@@ -105,11 +105,18 @@ function ideaToRaw(idea, category) {
   };
 }
 
-async function saveDraftFromIdea(idea, category, batchId) {
+async function saveDraftFromIdea(idea, category, batchId, job = null) {
   const raw = ideaToRaw(idea, category);
+  if (job) {
+    touchJob(job, { currentPhase: 'generating', currentTitle: idea, currentModel: job.configuredModel });
+  }
   const draft = isListicleRoughText(idea)
     ? await buildListicleDraftResponse(raw, category)
     : await buildAiDraftResponse(raw, category);
+
+  if (job) {
+    touchJob(job, { currentModel: draft.aiModelUsed || draft.rewriteModel || job.configuredModel });
+  }
 
   const input = {
     title: draft.title,
@@ -142,6 +149,7 @@ async function saveDraftFromIdea(idea, category, batchId) {
   let payload = buildArticlePayload(input);
   payload.sourceType = 'idea-batch';
   payload.ideaBatchId = batchId;
+  payload.aiModelUsed = draft.aiModelUsed || '';
   payload.slug = await ensureUniqueSlug(payload.slug || slugify(payload.title));
   await ensureFeaturedImage(payload, payload.slug);
   return Article.create(payload);
@@ -158,7 +166,7 @@ async function generateDraftWithRetry(idea, category, batchId, { job, onWaiting 
     await waitWhilePaused(job);
     try {
       if (job) job.currentIdea = idea;
-      return await saveDraftFromIdea(idea, category, batchId);
+      return await saveDraftFromIdea(idea, category, batchId, job);
     } catch (err) {
       lastErr = err;
       if (job?.control?.skipCurrent) {
@@ -194,6 +202,8 @@ function createRunJob(ideas, category) {
     ideaIndex: 0,
     currentPhase: 'starting',
     currentTitle: null,
+    currentModel: null,
+    configuredModel: process.env.OPENROUTER_MODEL?.trim() || process.env.BLUESMINDS_MODEL?.trim() || process.env.GROQ_MODEL?.trim() || 'AI',
     waitingSeconds: 0,
     rateLimited: false,
     errorMessages: [],

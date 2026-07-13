@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Spinner } from '../common/Spinner.jsx';
 import { pollIdeaBatchRun, ideaPhaseLabel, controlIdeaBatchRun } from '@/utils/ideaBatchRun';
+import { formatAiModelLabel } from '@/utils/formatAiModel';
 
 function formatElapsed(ms) {
   const sec = Math.floor(ms / 1000);
@@ -96,6 +97,7 @@ export function IdeaBatchRunProgress({ jobId, onComplete, onClose }) {
   const running = job.status === 'running';
   const paused = job.currentPhase === 'paused';
   const showControls = running || paused;
+  const modelLabel = formatAiModelLabel(job.currentModel, job.rewriteModel) || job.configuredModel;
 
   const btn =
     'rounded-lg px-2.5 py-1 text-xs font-medium border border-violet-300 bg-white hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/40 dark:hover:bg-violet-900';
@@ -118,6 +120,11 @@ export function IdeaBatchRunProgress({ jobId, onComplete, onClose }) {
               {job.category ? ` · ${job.category}` : ''}
               {running && job.startedAt ? ` · ${formatElapsed(elapsed)} elapsed` : ''}
             </p>
+            {modelLabel ? (
+              <p className="mt-1 text-xs font-medium text-violet-700 dark:text-violet-300">
+                Model: {modelLabel}
+              </p>
+            ) : null}
             {job.currentTitle ? (
               <p className="mt-1 truncate text-xs text-violet-700/90 dark:text-violet-300/90">
                 {job.currentTitle}

@@ -1,6 +1,7 @@
 'use client';
 
 import { BATCH_STATUS, STATUS_LABELS, heroPreviewUrl, isActiveStatus } from '@/utils/batchDraftQueue';
+import { formatAiModelLabel } from '@/utils/formatAiModel';
 
 const STEP_ORDER = [
   BATCH_STATUS.QUEUED,
@@ -39,6 +40,7 @@ export default function BatchReviewCard({ item, onCancel, onPublish, onEditInEdi
   const preview = heroPreviewUrl(item.draft);
   const active = isActiveStatus(item.status);
   const step = stepIndex(item.status);
+  const modelLabel = formatAiModelLabel(item.draft?.aiModelUsed, item.draft?.rewriteModel);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700/80 dark:bg-gray-900">
@@ -93,6 +95,7 @@ export default function BatchReviewCard({ item, onCancel, onPublish, onEditInEdi
         <h3 className="line-clamp-2 font-display text-sm font-bold leading-snug text-gray-900 dark:text-white">{title}</h3>
         <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
           {item.meta?.sourceName || 'Source'}
+          {modelLabel ? ` · ${modelLabel}` : active ? ' · generating…' : ''}
         </p>
 
         {item.error && (

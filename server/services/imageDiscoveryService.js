@@ -2,7 +2,7 @@ import axios from 'axios';
 import { isUsableImageUrl, isRejectedHeroImageUrl, unsplashHeroUrl } from '../utils/heroImageUtils.js';
 import { resolveLicensedHeroImage, buildImageAttribution } from './licensedImageService.js';
 
-async function fetchOgImage(pageUrl) {
+export async function fetchOgImage(pageUrl) {
   try {
     const { data: html } = await axios.get(pageUrl, {
       timeout: 12000,
@@ -73,7 +73,7 @@ async function searchGoogleImageList(query, { freeUseOnly = true, limit = 6 } = 
   }
 }
 
-async function searchGoogleImage(query, { freeUseOnly = true } = {}) {
+export async function searchGoogleImage(query, { freeUseOnly = true } = {}) {
   const list = await searchGoogleImageList(query, { freeUseOnly, limit: 1 });
   return list[0] || null;
 }
