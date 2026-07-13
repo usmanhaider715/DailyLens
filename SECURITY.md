@@ -30,14 +30,27 @@
 
 ## GitHub Actions deploy
 
-Add repository secrets:
+Required repository secrets (Settings → Secrets and variables → Actions):
 
 - `HOST` — VPS IP
-- `USERNAME` — SSH user
+- `USERNAME` — SSH user (e.g. `root`)
 - `SSH_KEY` — private key (ed25519)
-- `PORT` — `22`
+- `PORT` — optional, default `22`
 
 Push to `main` triggers `.github/workflows/deploy.yml`.
+
+### One-time setup (recommended)
+
+```bash
+gh auth login
+bash scripts/setup-github-actions-deploy.sh
+```
+
+This creates `~/.ssh/dailylens_github_actions`, authorizes it on the VPS, and writes all secrets.
+
+### If deploys fail at “Deploy over SSH”
+
+Usually **SSH auth**: `SSH_KEY` must match a key in the VPS `authorized_keys`. Re-run the setup script above, then **Actions → Deploy The Daily Lens → Run workflow**.
 
 ## Never commit
 

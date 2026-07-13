@@ -3,19 +3,38 @@ name: Deploy The Daily Lens
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     if: github.repository == 'usmanhaider715/DailyLens'
     steps:
+      - name: Validate required secrets
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          missing=0
+          for var in HOST USERNAME SSH_KEY; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing GitHub Actions secret: $var"
+              echo "Run: bash scripts/setup-github-actions-deploy.sh (after gh auth login)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+
       - name: Deploy over SSH to Hostinger VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.PORT || 22 }}
+          command_timeout: 30m
+          script_stop: true
           script: |
             set -e
             cd /var/www/dailylens
