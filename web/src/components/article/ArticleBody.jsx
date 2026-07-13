@@ -8,6 +8,8 @@ import { ForecastBlock } from './ForecastBlock.jsx';
 import { ForecastBadge } from '../common/ForecastBadge.jsx';
 import { ArticleRichContent } from './ArticleRichContent.jsx';
 import { ArticleTrustBar } from './ArticleTrustBar.jsx';
+import { BookmarkButton } from './BookmarkButton.jsx';
+import { RecentlyViewedTracker } from './RecentlyViewedTracker.jsx';
 import { HeroImage } from '../common/HeroImage.jsx';
 import { splitArticleBody } from '../../utils/articleBodyFormat.js';
 import { prepareArticleHtml } from '../../utils/stripHtml.js';
@@ -38,6 +40,7 @@ export function ArticleBody({ article, related, recommendations }) {
   return (
     <>
       <ReadingProgress />
+      <RecentlyViewedTracker article={article} />
       <article className="mx-auto max-w-3xl px-4 pb-16 pt-8">
         <figure>
           <HeroImage
@@ -87,8 +90,9 @@ export function ArticleBody({ article, related, recommendations }) {
 
         <ArticleTrustBar article={article} />
 
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <ShareButtons url={url} title={article.title} />
+          <BookmarkButton article={article} />
         </div>
 
         <SourceNewsBriefButton article={article} />
