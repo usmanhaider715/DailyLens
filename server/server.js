@@ -77,8 +77,9 @@ app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
-app.use(apiLimiter);
-
+// Serve static hero images before the rate limiter so image grids never
+// count against the API request limit (which would cause 429s and make the
+// frontend fall back to the generic placeholder image).
 app.use(
   '/uploads/heroes',
   express.static(getHeroUploadDir(), {
@@ -86,6 +87,8 @@ app.use(
     immutable: true,
   })
 );
+
+app.use(apiLimiter);
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 

@@ -10,6 +10,7 @@ export const apiLimiter = rateLimit({
     const p = req.path || '';
     const url = req.originalUrl || '';
     return (
+      p.startsWith('/uploads/') ||
       p === '/robots.txt' ||
       p === '/feed.xml' ||
       p === '/llms.txt' ||
