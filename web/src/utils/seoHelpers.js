@@ -141,6 +141,41 @@ export function buildSportsEventsFromGames(games = [], limit = 10) {
     .filter(Boolean);
 }
 
+export function buildPersonJsonLd(author, { canonical } = {}) {
+  if (!author?.name) return null;
+  const slug = author.slug || authorSlug(author.name);
+  const pageUrl = canonical || absoluteUrl(`/author/${slug}`);
+  const sameAs = [
+    author.socialLinks?.twitter,
+    author.socialLinks?.linkedin,
+    author.socialLinks?.website,
+  ].filter(Boolean);
+
+  const person = {
+    '@type': 'Person',
+    '@id': `${pageUrl}#person`,
+    name: author.name,
+    url: pageUrl,
+    jobTitle: author.title || author.role || undefined,
+    description: author.bio || undefined,
+    knowsAbout: author.knowsAbout?.length ? author.knowsAbout : author.expertise || undefined,
+    worksFor: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: absoluteUrl('/'),
+    },
+  };
+  if (author.avatar) person.image = author.avatar;
+  if (sameAs.length) person.sameAs = sameAs;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    mainEntity: person,
+    url: pageUrl,
+  };
+}
+
 export function authorSlug(name) {
   return String(name || 'the-daily-lens-desk')
     .toLowerCase()
