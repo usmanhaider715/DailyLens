@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { scoreArticleQuality } from '../services/contentQualityService.js';
 
 const heroSchema = new mongoose.Schema(
   {
@@ -89,6 +90,10 @@ const articleSchema = new mongoose.Schema(
       url: String,
     },
     seoScore: { type: Number, min: 1, max: 10 },
+    /** Composite content-quality score (0-100) computed on save. */
+    qualityScore: { type: Number, min: 0, max: 100 },
+    /** Quality flags in "level:message" form (error|warn|info). */
+    qualityFlags: { type: [String], default: [] },
     readTime: Number,
     isBreaking: { type: Boolean, default: false, index: true },
     isFeatured: { type: Boolean, default: false, index: true },
@@ -154,5 +159,16 @@ articleSchema.index({ category: 1, publishedAt: -1 });
 articleSchema.index({ normalizedSourceUrl: 1, publishedAt: -1 });
 articleSchema.index({ contentType: 1, reviewStatus: 1, publishedAt: -1 });
 articleSchema.index({ topicHash: 1, category: 1 }, { unique: true, sparse: true });
+
+// Central quality scoring: runs on every full-document save/create so the
+// score stays in sync with content across all pipelines. Cheap + pure.
+articleSchema.pre('save', function computeQuality(next) {
+  if (this.body && (this.isModified('body') || this.isModified('summary') || this.isNew)) {
+    const { score, flags } = scoreArticleQuality(this.toObject());
+    this.qualityScore = score;
+    this.qualityFlags = flags;
+  }
+  next();
+});
 
 export const Article = mongoose.model('Article', articleSchema);

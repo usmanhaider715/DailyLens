@@ -27,6 +27,9 @@ const adminListProjection = {
   heroImage: 1,
   forecast: 1,
   sourceType: 1,
+  qualityScore: 1,
+  qualityFlags: 1,
+  reviewStatus: 1,
 };
 
 export async function getAdminArticle(req, res, next) {
