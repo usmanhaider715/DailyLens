@@ -13,6 +13,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { FooterLegal } from '@/components/legal/SiteDisclaimers';
 import { Spinner } from '@/components/common/Spinner';
 import { EvergreenHomeSection } from '@/components/evergreen/EvergreenHomeSection';
+import { ForYouRail } from '@/components/home/ForYouRail';
+import { TopicHubsRail } from '@/components/home/TopicHubsRail';
 
 export function HomeClient({
   initialFeatured = [],
@@ -70,6 +72,8 @@ export function HomeClient({
       <div className="mx-auto max-w-7xl border-t border-gray-100 px-4 py-8 dark:border-gray-800">
         <LiveScoreboard />
       </div>
+      <ForYouRail />
+      <TopicHubsRail />
       <EvergreenHomeSection />
       <div className="border-t border-gray-100 bg-gray-50/50 py-8 dark:border-gray-800 dark:bg-gray-900/20">
         <CategoryTabs active={tab} onChange={setTab} />
