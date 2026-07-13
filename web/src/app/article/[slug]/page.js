@@ -53,7 +53,11 @@ export default async function ArticlePage({ params }) {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <ArticleView article={article} related={data.related || []} />
+      <ArticleView
+        article={article}
+        related={data.related || []}
+        recommendations={data.recommendations}
+      />
     </>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { ShareButtons } from './ShareButtons.jsx';
-import { RelatedArticles } from './RelatedArticles.jsx';
+import { ArticleRecommendations } from './ArticleRecommendations.jsx';
 import { ArticleAd } from './ArticleAd.jsx';
 import { ReadingProgress } from './ReadingProgress.jsx';
 import { ForecastBlock } from './ForecastBlock.jsx';
@@ -25,7 +25,7 @@ function isHtmlArticle(body) {
   return /<(h[1-6]|p|strong|h2)\b/i.test(body) || body.includes('<!-- ARTICLE_FOOTER -->');
 }
 
-export function ArticleBody({ article, related }) {
+export function ArticleBody({ article, related, recommendations }) {
   const url = typeof window !== 'undefined' ? window.location.href : '';
   const htmlArticle = isHtmlArticle(article.body);
   const { main: articleMain, followUp: articleFollowUp, footer: articleFooter } = splitArticleBody(
@@ -141,7 +141,7 @@ export function ArticleBody({ article, related }) {
           <ShareButtons url={url} title={article.title} />
         </div>
 
-        <RelatedArticles articles={related} />
+        <ArticleRecommendations data={recommendations} fallback={related} />
       </article>
     </>
   );

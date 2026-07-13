@@ -4,6 +4,7 @@ import { cacheGet, cacheSet, cacheKeys, cacheDel } from '../services/cacheServic
 import { publicArticleFilter, newsArticleFilter, evergreenPublicFilter } from '../utils/publicArticleFilter.js';
 import { normalizeHeroImage } from '../utils/heroImageUtils.js';
 import { recordArticleView } from '../services/viewStatsService.js';
+import { getArticleRecommendations } from '../services/recommendationService.js';
 import { sanitizeReadTimeMinutes } from '../utils/seoArticleNormalize.js';
 
 function enrichArticleHero(article) {
@@ -18,6 +19,16 @@ function enrichArticleHero(article) {
 function enrichList(payload) {
   if (!payload?.items) return payload;
   return { ...payload, items: payload.items.map(enrichArticleHero) };
+}
+
+function enrichRecommendations(rec) {
+  const map = (arr) => (Array.isArray(arr) ? arr.map(enrichArticleHero) : []);
+  return {
+    relatedNews: map(rec?.relatedNews),
+    relatedGuides: map(rec?.relatedGuides),
+    popular: map(rec?.popular),
+    recommended: map(rec?.recommended),
+  };
 }
 
 const listProjection = {
@@ -193,6 +204,7 @@ export async function getArticleBySlug(req, res, next) {
       return res.json({
         article: enrichArticleHero(cached.article),
         related: (cached.related || []).map(enrichArticleHero),
+        recommendations: enrichRecommendations(cached.recommendations),
       });
     }
 
@@ -214,25 +226,23 @@ export async function getArticleBySlug(req, res, next) {
       }
     });
 
-    const related = await Article.find(
-      {
-        category: article.category,
-        ...publicArticleFilter,
-        _id: { $ne: article._id },
-      },
-      listProjection
-    )
-      .sort({ publishedAt: -1 })
-      .limit(4)
-      .lean();
+    const recommendations = await getArticleRecommendations(article, { perSection: 4 });
+    // Backward-compatible "related" = related news, falling back to recommended.
+    const related =
+      recommendations.relatedNews?.length ? recommendations.relatedNews : recommendations.recommended;
 
     const payload = {
       article: enrichArticleHero(article),
-      related: related.map(enrichArticleHero),
+      related: (related || []).map(enrichArticleHero),
+      recommendations,
     };
     await cacheSet(ck, payload, 120);
     res.set('Cache-Control', 'public, max-age=60');
-    res.json(payload);
+    res.json({
+      ...payload,
+      article: payload.article,
+      recommendations: enrichRecommendations(recommendations),
+    });
   } catch (e) {
     next(e);
   }
