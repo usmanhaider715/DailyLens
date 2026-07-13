@@ -76,7 +76,7 @@ export function ArticleTrustBar({ article }) {
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {factChecked && (
           <Link
-            href="/editorial-standards#fact-checking"
+            href="/editorial/fact-checking"
             className={`${chipBase} border-green-200 bg-green-50 text-green-800 hover:bg-green-100 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-300`}
             title="Quotes and key facts verified against the original source"
           >
@@ -86,7 +86,7 @@ export function ArticleTrustBar({ article }) {
         )}
         {reviewed && (
           <Link
-            href="/editorial-standards#review"
+            href="/editorial/publishing-process#review"
             className={`${chipBase} border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300`}
             title="Reviewed under our editorial standards"
           >
@@ -95,7 +95,7 @@ export function ArticleTrustBar({ article }) {
           </Link>
         )}
         <Link
-          href="/editorial-standards#ai"
+          href="/editorial/ai"
           className={`${chipBase} border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300`}
           title="How AI is used and reviewed at The Daily Lens"
         >

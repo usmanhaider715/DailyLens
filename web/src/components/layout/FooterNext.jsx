@@ -13,13 +13,24 @@ export function Footer() {
             Independent news, live scores, and weather — updated throughout the day.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-8 text-sm">
+        <div className="grid grid-cols-2 gap-8 text-sm md:grid-cols-3">
           <div>
             <div className="font-semibold text-gray-900 dark:text-white">Sections</div>
             <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
               <li><Link href="/category/World">World</Link></li>
               <li><Link href="/category/Technology">Technology</Link></li>
               <li><Link href="/category/Business">Business</Link></li>
+              <li><Link href="/evergreen">Guides</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-900 dark:text-white">Trust &amp; transparency</div>
+            <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
+              <li><Link href="/editorial-standards">Editorial standards</Link></li>
+              <li><Link href="/editorial/fact-checking">Fact-checking policy</Link></li>
+              <li><Link href="/editorial/corrections">Corrections</Link></li>
+              <li><Link href="/editorial/ai">AI transparency</Link></li>
+              <li><Link href="/editorial/publishing-process">Publishing process</Link></li>
             </ul>
           </div>
           <div>
@@ -27,7 +38,8 @@ export function Footer() {
             <ul className="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
               <li><Link href="/about">About</Link></li>
               <li><Link href="/contact">Contact us</Link></li>
-              <li><Link href="/editorial-standards">Editorial standards</Link></li>
+              <li><Link href="/advertise">Advertise</Link></li>
+              <li><Link href="/media-kit">Media kit</Link></li>
               <li><a href="/feed.xml">RSS Feed</a></li>
               <li><a href="/sitemap.xml">Sitemap</a></li>
               <li><Link href="/legal/privacy">Privacy</Link></li>
