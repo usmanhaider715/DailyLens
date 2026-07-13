@@ -99,6 +99,14 @@ app.get('/robots.txt', (req, res) => {
   res.send(buildRobotsTxt());
 });
 
+// ads.txt for programmatic/AdSense verification. Configure via ADS_TXT env
+// (e.g. "google.com, pub-XXXX, DIRECT, f08c47fec0942fa0").
+app.get('/ads.txt', (req, res) => {
+  res.type('text/plain');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send((process.env.ADS_TXT || '').trim() + '\n');
+});
+
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
     const xml = await buildSitemapIndexXml();

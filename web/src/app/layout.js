@@ -1,6 +1,10 @@
+import Script from 'next/script';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { Providers } from './providers';
+import { SHOW_ADS } from '@/config/features';
 import './globals.css';
+
+const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || '';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
 const playfair = Playfair_Display({
@@ -61,6 +65,15 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className={`${inter.variable} ${playfair.variable} font-body`}>
+        {SHOW_ADS && ADSENSE_CLIENT && (
+          <Script
+            id="adsbygoogle-init"
+            async
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          />
+        )}
         <Providers>{children}</Providers>
       </body>
     </html>

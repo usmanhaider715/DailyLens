@@ -32,6 +32,7 @@ const nextConfig = {
       { source: '/sitemap-categories.xml', destination: `${apiUrl}/sitemap-categories.xml` },
       { source: '/sitemap-news.xml', destination: `${apiUrl}/sitemap-news.xml` },
       { source: '/robots.txt', destination: `${apiUrl}/robots.txt` },
+      { source: '/ads.txt', destination: `${apiUrl}/ads.txt` },
       { source: '/feed.xml', destination: `${apiUrl}/feed.xml` },
       { source: '/llms.txt', destination: `${apiUrl}/llms.txt` },
       { source: '/health', destination: `${apiUrl}/health` },
