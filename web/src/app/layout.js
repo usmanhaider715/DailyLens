@@ -2,8 +2,14 @@ import { Inter, Playfair_Display } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['600', '700'], variable: '--font-display' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-display',
+  display: 'swap',
+  preload: false,
+});
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
