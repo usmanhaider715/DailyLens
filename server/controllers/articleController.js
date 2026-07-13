@@ -248,6 +248,35 @@ export async function getArticleBySlug(req, res, next) {
   }
 }
 
+export async function recordEngagement(req, res, next) {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(204).end();
+
+    const body = req.body || {};
+    const event = String(body.event || '');
+    const inc = {};
+    const rawDepth = Number(body.scrollDepth);
+    if (Number.isFinite(rawDepth)) {
+      const depth = Math.max(0, Math.min(100, Math.round(rawDepth)));
+      inc['engagement.scrollDepthSum'] = depth;
+      inc['engagement.scrollDepthCount'] = 1;
+    }
+    if (event === 'read') {
+      inc['engagement.readCompletions'] = 1;
+    }
+
+    if (Object.keys(inc).length) {
+      await Article.updateOne({ slug }, { $inc: inc });
+    }
+    res.status(204).end();
+  } catch (e) {
+    // Analytics must never break the page — swallow.
+    res.status(204).end();
+    void next;
+  }
+}
+
 export async function invalidateArticleCaches() {
   const { getRedis } = await import('../config/redis.js');
   const { invalidateSitemapCache } = await import('../services/sitemapService.js');

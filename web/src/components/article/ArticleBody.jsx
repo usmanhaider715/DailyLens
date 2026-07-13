@@ -10,6 +10,7 @@ import { ArticleRichContent } from './ArticleRichContent.jsx';
 import { ArticleTrustBar } from './ArticleTrustBar.jsx';
 import { BookmarkButton } from './BookmarkButton.jsx';
 import { RecentlyViewedTracker } from './RecentlyViewedTracker.jsx';
+import { ArticleEngagementTracker } from './ArticleEngagementTracker.jsx';
 import { HeroImage } from '../common/HeroImage.jsx';
 import { splitArticleBody } from '../../utils/articleBodyFormat.js';
 import { prepareArticleHtml } from '../../utils/stripHtml.js';
@@ -41,6 +42,7 @@ export function ArticleBody({ article, related, recommendations }) {
     <>
       <ReadingProgress />
       <RecentlyViewedTracker article={article} />
+      <ArticleEngagementTracker slug={article.slug} />
       <article className="mx-auto max-w-3xl px-4 pb-16 pt-8">
         <figure>
           <HeroImage

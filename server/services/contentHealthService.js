@@ -48,13 +48,31 @@ export function computeContentHealth(article = {}) {
     reasons.push('Has a blocking quality flag');
   }
 
+  // Reader engagement (from beacons): completion rate + avg scroll depth.
+  const eng = article.engagement || {};
+  const completions = Number(eng.readCompletions) || 0;
+  const completionRate = views > 0 ? Math.min(1, completions / views) : 0;
+  const avgScroll = eng.scrollDepthCount > 0 ? Math.round(eng.scrollDepthSum / eng.scrollDepthCount) : null;
+  if (views > 50 && completionRate < 0.12) {
+    reasons.push('Low read-completion — intro or structure may need work');
+  }
+
   const health = Math.round(quality * 0.4 + freshness * 0.35 + engagement * 0.25);
   const needsRefresh =
     updatedAge > REFRESH_AGE_DAYS ||
     quality < 60 ||
     (article.qualityFlags || []).some((f) => f.startsWith('error:'));
 
-  return { health, quality, freshness, engagement, needsRefresh, reasons };
+  return {
+    health,
+    quality,
+    freshness,
+    engagement,
+    completionRate: Math.round(completionRate * 100),
+    avgScroll,
+    needsRefresh,
+    reasons,
+  };
 }
 
 const HEALTH_PROJECTION = {
@@ -68,6 +86,7 @@ const HEALTH_PROJECTION = {
   qualityFlags: 1,
   contentType: 1,
   isEvergreen: 1,
+  engagement: 1,
 };
 
 /** List evergreen guides with health scores, worst (most in need) first. */

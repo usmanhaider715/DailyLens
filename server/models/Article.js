@@ -94,6 +94,12 @@ const articleSchema = new mongoose.Schema(
     qualityScore: { type: Number, min: 0, max: 100 },
     /** Quality flags in "level:message" form (error|warn|info). */
     qualityFlags: { type: [String], default: [] },
+    /** Reader engagement counters (populated by client beacons). */
+    engagement: {
+      readCompletions: { type: Number, default: 0 },
+      scrollDepthSum: { type: Number, default: 0 },
+      scrollDepthCount: { type: Number, default: 0 },
+    },
     readTime: Number,
     isBreaking: { type: Boolean, default: false, index: true },
     isFeatured: { type: Boolean, default: false, index: true },
