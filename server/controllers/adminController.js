@@ -12,6 +12,7 @@ import { slugify } from '../utils/slugify.js';
 import { Category } from '../models/Category.js';
 import { getEasternDateParts } from '../utils/usEasternTime.js';
 import { getViewsChartSeries } from '../services/viewStatsService.js';
+import { getEvergreenHealth } from '../services/contentHealthService.js';
 
 const adminListProjection = {
   title: 1,
@@ -37,6 +38,16 @@ export async function getAdminArticle(req, res, next) {
     const doc = await Article.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ message: 'Article not found' });
     res.json(doc);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function contentHealth(req, res, next) {
+  try {
+    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const data = await getEvergreenHealth({ limit });
+    res.json(data);
   } catch (e) {
     next(e);
   }

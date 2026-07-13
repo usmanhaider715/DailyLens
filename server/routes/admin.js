@@ -40,6 +40,7 @@ router.delete('/articles/:id', admin.deleteArticle);
 router.post('/fetch-url', admin.manualFetchUrl);
 router.post('/breaking-push', admin.breakingPush);
 router.get('/analytics', admin.adminAnalytics);
+router.get('/content-health', admin.contentHealth);
 router.get('/settings', admin.getSettings);
 router.put('/settings', admin.updateSettings);
 
