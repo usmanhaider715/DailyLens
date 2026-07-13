@@ -35,6 +35,7 @@ import siteRoutes from './routes/site.js';
 import imagesRoutes from './routes/images.js';
 import authorsRoutes from './routes/authors.js';
 import contactRoutes from './routes/contact.js';
+import topicsRoutes from './routes/topics.js';
 import { ensureDefaultAuthors } from './models/Author.js';
 import {
   buildSitemapIndexXml,
@@ -171,6 +172,7 @@ app.use('/api/site', siteRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/authors', authorsRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/topics', topicsRoutes);
 
 app.use(errorHandler);
 

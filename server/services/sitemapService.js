@@ -2,6 +2,7 @@ import { Article } from '../models/Article.js';
 import { publicArticleFilter } from '../utils/publicArticleFilter.js';
 import { cacheGet, cacheSet } from './cacheService.js';
 import { getAllWeatherSeoLocations } from '../data/weatherLocations.js';
+import { TOPIC_HUBS } from './topicHubService.js';
 
 const SITE_CATEGORIES = [
   'World',
@@ -137,6 +138,8 @@ export async function buildSitemapCategoriesXml() {
     ...SITE_CATEGORIES.map((cat) =>
       urlEntry(`${site}/category/${encodeURIComponent(cat)}`, now, 'hourly', '0.8'),
     ),
+    urlEntry(`${site}/topics`, now, 'daily', '0.7'),
+    ...TOPIC_HUBS.map((hub) => urlEntry(`${site}/topic/${hub.slug}`, now, 'daily', '0.75')),
     ...getAllWeatherSeoLocations().map((loc) =>
       urlEntry(`${site}/weather/${loc.country}/${loc.slug}`, now, 'hourly', '0.8'),
     ),

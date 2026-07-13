@@ -21,6 +21,7 @@ export function Footer() {
               <li><Link href="/category/Technology">Technology</Link></li>
               <li><Link href="/category/Business">Business</Link></li>
               <li><Link href="/evergreen">Guides</Link></li>
+              <li><Link href="/topics">Topics</Link></li>
             </ul>
           </div>
           <div>
