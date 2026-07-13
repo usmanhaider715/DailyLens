@@ -26,10 +26,43 @@ export default function EditorialStandardsPage() {
           source attribution.
         </p>
 
-        <h2 className="mt-10 font-display text-xl font-bold text-gray-900 dark:text-white">AI-assisted content</h2>
+        <h2
+          id="fact-checking"
+          className="mt-10 scroll-mt-24 font-display text-xl font-bold text-gray-900 dark:text-white"
+        >
+          Fact-checking
+        </h2>
         <p className="mt-3 leading-relaxed text-gray-600 dark:text-gray-300">
-          Some articles use AI tools to draft or polish copy from source material. All AI-assisted content is
-          reviewed before publication. We do not publish unverified claims as fact.
+          Before publication, every direct quotation is verified verbatim against the original source — quotes
+          that cannot be confirmed are removed automatically. We do not fabricate statistics, studies, experts,
+          or attributions. When an article carries the <strong>Fact-checked</strong> badge, its quotes and key
+          claims have passed this verification step.
+        </p>
+
+        <h2
+          id="review"
+          className="mt-10 scroll-mt-24 font-display text-xl font-bold text-gray-900 dark:text-white"
+        >
+          Editorial review
+        </h2>
+        <p className="mt-3 leading-relaxed text-gray-600 dark:text-gray-300">
+          Guides and evergreen explainers in sensitive categories (finance, insurance, legal, health) are held
+          for editorial review before they go live. Articles marked <strong>Editorially reviewed</strong> have
+          been approved under these standards. Breaking news is published quickly and updated as the story
+          develops, with significant changes noted on the article.
+        </p>
+
+        <h2
+          id="ai"
+          className="mt-10 scroll-mt-24 font-display text-xl font-bold text-gray-900 dark:text-white"
+        >
+          AI-assisted content
+        </h2>
+        <p className="mt-3 leading-relaxed text-gray-600 dark:text-gray-300">
+          Some articles use AI tools to draft or polish copy from source material. All AI-assisted content passes
+          our automated quote verification and quality checks, and sensitive topics are reviewed by an editor
+          before publication. We do not publish unverified claims as fact, and we never present AI-generated
+          placeholders or unfinished copy.
         </p>
 
         <h2 className="mt-10 font-display text-xl font-bold text-gray-900 dark:text-white">Images &amp; copyright</h2>
