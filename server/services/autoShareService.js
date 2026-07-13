@@ -145,6 +145,42 @@ function feedSourceMatches(selectedNames, feedSourceName) {
   return expandSourceNames(selectedNames).some((n) => namesMatch(n, feedSourceName));
 }
 
+/**
+ * Idempotently ensure the "Google Trends USA" auto-share source exists so it
+ * shows up as a checkbox in the admin panel. Runs on every server boot, so it
+ * self-heals regardless of deploy-script timing. Auto-selects it in auto-share
+ * only the first time it's created (never fights a later manual un-tick).
+ */
+export async function ensureGoogleTrendsUsSource() {
+  try {
+    const existing = await NewsSource.findOne({ url: GOOGLE_TRENDS_US_SOURCE_KEY }).lean();
+    const src = await NewsSource.findOneAndUpdate(
+      { url: GOOGLE_TRENDS_US_SOURCE_KEY },
+      {
+        name: GOOGLE_TRENDS_US_SOURCE_NAME,
+        type: 'api',
+        url: GOOGLE_TRENDS_US_SOURCE_KEY,
+        category: 'World',
+        isActive: true,
+      },
+      { upsert: true, new: true },
+    );
+    if (!existing) {
+      const settings = await getSiteSettings();
+      const ids = (settings.autoShareSourceIds || []).map(String);
+      if (ids.length && !ids.includes(String(src._id))) {
+        settings.autoShareSourceIds = [...settings.autoShareSourceIds, src._id];
+        await settings.save();
+      }
+      logger.info('Ensured Google Trends USA auto-share source (created + selected)');
+    }
+    return src;
+  } catch (err) {
+    logger.warn(`ensureGoogleTrendsUsSource failed: ${err.message}`);
+    return null;
+  }
+}
+
 /** Is the Google Trends USA pseudo-source selected? Detected by its stable
  * routing key (`url`) or its canonical name. */
 function hasGoogleTrendsUs(sources) {

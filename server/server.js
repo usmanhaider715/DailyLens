@@ -19,6 +19,7 @@ import { logger } from './utils/logger.js';
 import { verifyMailerConnection } from './lib/mailer.js';
 import { scheduleNewsFetcher } from './jobs/newsFetcher.js';
 import { scheduleAutoShare } from './jobs/autoShareScheduler.js';
+import { ensureGoogleTrendsUsSource } from './services/autoShareService.js';
 import { scheduleEvergreenPipeline } from './jobs/evergreenScheduler.js';
 import { updateTrendingCache } from './jobs/trendingUpdater.js';
 import { scheduleTrendScoreUpdater, updateArticleTrendScores } from './jobs/trendScoreUpdater.js';
@@ -213,6 +214,7 @@ async function start() {
     configureCloudinary();
     await connectDB(process.env.MONGODB_URI);
     await ensureDefaultAuthors();
+    await ensureGoogleTrendsUsSource();
     getRedis();
     await verifyMailerConnection();
     if (process.env.DISABLE_AI_PIPELINE !== 'true') {
