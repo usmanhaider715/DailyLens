@@ -867,6 +867,7 @@ export async function startAutoShareRunJob(periodId) {
 }
 
 export async function getAutoShareConfig() {
+  await ensureGoogleTrendsUsSource();
   const settings = await getSiteSettings();
   const sources = await NewsSource.find().sort({ name: 1 }).lean();
   const reports = await AutoShareReport.find().sort({ createdAt: -1 }).limit(50).lean();
