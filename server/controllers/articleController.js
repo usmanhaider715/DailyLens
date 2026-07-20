@@ -11,15 +11,19 @@ function isEvergreenArticle(article) {
   return !!(article?.isEvergreen || article?.contentType === 'evergreen');
 }
 
-function trackViewForArticle(article) {
-  setImmediate(async () => {
-    try {
-      await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
-      await recordArticleView({ isEvergreen: isEvergreenArticle(article) });
-    } catch {
-      /* noop */
-    }
-  });
+/**
+ * Session-unique page views are recorded via POST /articles/:slug/view from
+ * the browser (sessionStorage-deduped). GET /:slug no longer increments so
+ * SSR + metadata fetches don't inflate counts.
+ */
+async function trackViewForArticle(article) {
+  if (!article?._id) return;
+  try {
+    await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
+    await recordArticleView({ isEvergreen: isEvergreenArticle(article) });
+  } catch {
+    /* noop */
+  }
 }
 
 function enrichArticleHero(article) {
@@ -228,7 +232,6 @@ export async function getArticleBySlug(req, res, next) {
     const ck = cacheKeys().articleBySlug(slug);
     const cached = await cacheGet(ck);
     if (cached) {
-      trackViewForArticle(cached.article);
       res.set('Cache-Control', 'public, max-age=60');
       return res.json({
         article: enrichArticleHero(cached.article),
@@ -245,8 +248,6 @@ export async function getArticleBySlug(req, res, next) {
       }
       return res.status(404).json({ message: 'Article not found' });
     }
-
-    trackViewForArticle(article);
 
     const recommendations = await getArticleRecommendations(article, { perSection: 4 });
     // Backward-compatible "related" = related news, falling back to recommended.
@@ -267,6 +268,24 @@ export async function getArticleBySlug(req, res, next) {
     });
   } catch (e) {
     next(e);
+  }
+}
+
+/** Session-unique article view (client fires once per browser session per slug). */
+export async function recordArticlePageView(req, res) {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(204).end();
+
+    const article = await Article.findOne({ slug, ...publicArticleFilter })
+      .select('_id isEvergreen contentType')
+      .lean();
+    if (!article) return res.status(204).end();
+
+    await trackViewForArticle(article);
+    res.status(204).end();
+  } catch {
+    res.status(204).end();
   }
 }
 

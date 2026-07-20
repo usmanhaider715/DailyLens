@@ -9,6 +9,7 @@ router.get('/breaking', ac.getBreaking);
 router.get('/trending', ac.getTrending);
 router.get('/featured', ac.getFeatured);
 router.get('/:slug', ac.getArticleBySlug);
+router.post('/:slug/view', ac.recordArticlePageView);
 router.post('/:slug/engagement', ac.recordEngagement);
 router.get('/', ac.listArticles);
 

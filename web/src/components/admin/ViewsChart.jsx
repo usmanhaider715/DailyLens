@@ -152,13 +152,14 @@ export function ViewsChart({ chartData }) {
       </div>
 
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Page views tracked in {chartData?.timezoneLabel || 'US Eastern (ET)'} ·{' '}
+        Session-unique page views in {chartData?.timezoneLabel || 'US Eastern (ET)'} ·{' '}
         {periodTotal.toLocaleString()} in this period
         {showSplit ? (
           <span className="ml-1">
             ({totals.news.toLocaleString()} news · {totals.evergreen.toLocaleString()} evergreen)
           </span>
         ) : null}
+        <span className="ml-1 text-gray-400">· refresh in same session does not re-count</span>
       </p>
 
       {showSplit ? (

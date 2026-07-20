@@ -2,21 +2,49 @@
 
 import { useEffect } from 'react';
 
+function sendBeaconJson(url, payload) {
+  try {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    if (navigator.sendBeacon && navigator.sendBeacon(url, blob)) return;
+  } catch {
+    /* fall through */
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 /**
  * Fire-and-forget reader engagement tracking: records max scroll depth and a
  * "read complete" signal (scrolled past ~90% after dwelling a few seconds).
- * Deduped per session, sent via sendBeacon so it never blocks navigation.
+ * Also records one session-unique page view (deduped via sessionStorage).
  */
 export function ArticleEngagementTracker({ slug }) {
   useEffect(() => {
     if (!slug || typeof window === 'undefined') return;
 
+    const viewKey = `dl_view_${slug}`;
     const sessionKey = `dl_eng_${slug}`;
+    let alreadyViewed = false;
     let alreadyRead = false;
     try {
+      alreadyViewed = sessionStorage.getItem(viewKey) === '1';
       alreadyRead = sessionStorage.getItem(sessionKey) === '1';
     } catch {
       /* ignore */
+    }
+
+    // Count at most one view per article per browser session.
+    if (!alreadyViewed) {
+      try {
+        sessionStorage.setItem(viewKey, '1');
+      } catch {
+        /* ignore */
+      }
+      sendBeaconJson(`/api/articles/${encodeURIComponent(slug)}/view`, { event: 'view' });
     }
 
     const start = Date.now();
@@ -24,19 +52,7 @@ export function ArticleEngagementTracker({ slug }) {
     let readSent = alreadyRead;
 
     const send = (payload) => {
-      const url = `/api/articles/${encodeURIComponent(slug)}/engagement`;
-      try {
-        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-        if (navigator.sendBeacon && navigator.sendBeacon(url, blob)) return;
-      } catch {
-        /* fall through */
-      }
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {});
+      sendBeaconJson(`/api/articles/${encodeURIComponent(slug)}/engagement`, payload);
     };
 
     const computeDepth = () => {
