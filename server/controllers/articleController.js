@@ -7,6 +7,21 @@ import { recordArticleView } from '../services/viewStatsService.js';
 import { getArticleRecommendations } from '../services/recommendationService.js';
 import { sanitizeReadTimeMinutes } from '../utils/seoArticleNormalize.js';
 
+function isEvergreenArticle(article) {
+  return !!(article?.isEvergreen || article?.contentType === 'evergreen');
+}
+
+function trackViewForArticle(article) {
+  setImmediate(async () => {
+    try {
+      await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
+      await recordArticleView({ isEvergreen: isEvergreenArticle(article) });
+    } catch {
+      /* noop */
+    }
+  });
+}
+
 function enrichArticleHero(article) {
   if (!article) return article;
   return {
@@ -213,14 +228,7 @@ export async function getArticleBySlug(req, res, next) {
     const ck = cacheKeys().articleBySlug(slug);
     const cached = await cacheGet(ck);
     if (cached) {
-      setImmediate(async () => {
-        try {
-          await Article.updateOne({ _id: cached.article._id }, { $inc: { views: 1 } });
-          await recordArticleView();
-        } catch {
-          /* noop */
-        }
-      });
+      trackViewForArticle(cached.article);
       res.set('Cache-Control', 'public, max-age=60');
       return res.json({
         article: enrichArticleHero(cached.article),
@@ -238,14 +246,7 @@ export async function getArticleBySlug(req, res, next) {
       return res.status(404).json({ message: 'Article not found' });
     }
 
-    setImmediate(async () => {
-      try {
-        await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
-        await recordArticleView();
-      } catch {
-        /* noop */
-      }
-    });
+    trackViewForArticle(article);
 
     const recommendations = await getArticleRecommendations(article, { perSection: 4 });
     // Backward-compatible "related" = related news, falling back to recommended.
